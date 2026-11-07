@@ -183,6 +183,7 @@ public final class ModuleSettings {
 		list.add(Setting.integer("转场等待(tick)", 0, 400, 10, () -> ship.chainDelayTicks,
 				value -> ship.chainDelayTicks = value));
 		list.add(Setting.integer("转场距离上限", 0, 30000, 1000, () -> ship.chainRange, value -> ship.chainRange = value));
+		list.add(Setting.bool("按船高度飞(直接落船上)", () -> ship.flyExact, value -> ship.flyExact = value));
 		list.add(Setting.bool("巡航(朝一个方向飞)", () -> ship.sweep, value -> ship.sweep = value));
 		list.add(Setting.option("巡航方位", BEARINGS,
 				() -> (int) Math.round(ship.sweepBearing / 45.0) % 8,

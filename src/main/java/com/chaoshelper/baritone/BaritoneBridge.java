@@ -134,6 +134,31 @@ public final class BaritoneBridge {
 	}
 
 	/**
+	 * Elytra flight to an exact block position.
+	 *
+	 * <p>Baritone's {@code pathTo(GoalXZ)} hard-codes the cruise altitude to y=64
+	 * (see {@code ElytraProcess.pathTo(Goal)}), so an XZ goal can never target a
+	 * floating structure: the process finishes "at 64" and then looks for a safe
+	 * landing spot on whatever is below. A {@code GoalBlock} is the only way to
+	 * hand it a real Y, which is what makes landing on an End Ship possible.
+	 *
+	 * @return null on success, or a user-facing error message
+	 */
+	public synchronized String startElytraTo(int x, int y, int z) {
+		if (!isElytraAvailable()) {
+			return "ElytraFly 不可用: " + elytraUnavailableReason();
+		}
+		try {
+			Object goal = goalBlockConstructor.newInstance(x, y, z);
+			pathToGoal.invoke(elytraProcess, goal);
+			return null;
+		} catch (Throwable throwable) {
+			ChaosHelperClient.LOGGER.error("Baritone 设置鞘翅路径失败", throwable);
+			return "Baritone 设置鞘翅路径失败: " + throwable.getMessage();
+		}
+	}
+
+	/**
 	 * Re-issues an elytra goal after the process dropped out (e.g. a brief
 	 * non-gliding tick during an armour swap). Resets the internal state first so
 	 * a half-finished landing does not block the new goal.
@@ -147,6 +172,22 @@ public final class BaritoneBridge {
 		try {
 			resetElytra.invoke(elytraProcess);
 			Object goal = goalXZConstructor.newInstance(x, z);
+			pathToGoal.invoke(elytraProcess, goal);
+			return null;
+		} catch (Throwable throwable) {
+			ChaosHelperClient.LOGGER.error("Baritone 恢复鞘翅路径失败", throwable);
+			return "Baritone 恢复鞘翅路径失败: " + throwable.getMessage();
+		}
+	}
+
+	/** Same as {@link #restartElytra(int, int)} but keeps the exact altitude. */
+	public synchronized String restartElytraTo(int x, int y, int z) {
+		if (!isElytraAvailable()) {
+			return "ElytraFly 不可用: " + elytraUnavailableReason();
+		}
+		try {
+			resetElytra.invoke(elytraProcess);
+			Object goal = goalBlockConstructor.newInstance(x, y, z);
 			pathToGoal.invoke(elytraProcess, goal);
 			return null;
 		} catch (Throwable throwable) {

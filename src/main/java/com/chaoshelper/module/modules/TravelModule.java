@@ -50,6 +50,8 @@ public final class TravelModule extends Module {
 	private int lastElytraRetry = -1_000;
 	/** Cruise legs replan every few hundred blocks; do not narrate each one. */
 	private boolean quietRoute;
+	/** The elytra goal kept the real Y (GoalBlock) instead of an XZ goal. */
+	private boolean exactY;
 
 	/** Both assists are opt-in: they only run when the matching config flag is on. */
 	private final GlideClimbAssist climb = new GlideClimbAssist();
@@ -92,6 +94,26 @@ public final class TravelModule extends Module {
 	 * @return null on success, or a user-facing error message
 	 */
 	public String start(int x, int y, int z, Mode requested, String label, boolean quiet) {
+		return start(x, y, z, requested, label, quiet, false);
+	}
+
+	/**
+	 * Elytra-only start that keeps the target Y (Baritone {@code GoalBlock}).
+	 * Needed for floating structures: an XZ goal makes Baritone cruise at y=64
+	 * and then hunt for a landing spot somewhere else entirely.
+	 *
+	 * @return null on success, or a user-facing error message
+	 */
+	public String startExact(int x, int y, int z, String label, boolean quiet) {
+		return start(x, y, z, Mode.ELYTRA, label, quiet, true);
+	}
+
+	/**
+	 * @param exactY hand Baritone the real Y instead of an XZ goal
+	 * @return null on success, or a user-facing error message
+	 */
+	private String start(int x, int y, int z, Mode requested, String label, boolean quiet,
+			boolean exactY) {
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		MinecraftClient client = mod.client();
 		ClientPlayerEntity player = client.player;
@@ -144,12 +166,15 @@ public final class TravelModule extends Module {
 				return error;
 			}
 		} else if (mode == Mode.ELYTRA) {
-			String error = mod.baritoneBridge().startElytra(x, z);
+			String error = exactY
+					? mod.baritoneBridge().startElytraTo(x, y, z)
+					: mod.baritoneBridge().startElytra(x, z);
 			if (error != null) {
 				return error;
 			}
 		}
 		quietRoute = quiet;
+		this.exactY = exactY;
 		targetX = x;
 		targetY = y;
 		targetZ = z;
@@ -348,7 +373,9 @@ public final class TravelModule extends Module {
 					// 甲飞 drops the glide flag for a couple of ticks and Baritone
 					// treats that as the end of the flight. Re-issue the same goal
 					// instead of giving up, so the route survives the swap.
-					String error = mod.baritoneBridge().restartElytra(targetX, targetZ);
+					String error = exactY
+							? mod.baritoneBridge().restartElytraTo(targetX, targetY, targetZ)
+							: mod.baritoneBridge().restartElytra(targetX, targetZ);
 					lastElytraRetry = ticksSinceStart;
 					if (error == null) {
 						elytraRetries++;

@@ -3,6 +3,18 @@
 本项目的版本号写在 `gradle.properties` 的 `mod_version`，每次发布前手动递增，
 并同步 `fabric.mod.json`（构建时由 `${version}` 注入）与 `build/libs/chaoshelper-<version>.jar` 的文件名。
 
+## 1.0.5 — 2026-11-07
+
+### 修复
+
+- **飞到船附近却落偏**：`IElytraProcess.pathTo(GoalXZ)` 会把目标 Y 硬编码成 64
+  （`ElytraProcess.pathTo` 字节码 `bipush 64`），所以之前只按 X/Z 飞，最后由 Baritone 在
+  附近找「安全落点」，很容易落到岛面或船底。现在末地船改用 `GoalBlock(船的 x,y,z)`，
+  保留真实高度，落点搜索从船的位置开始，基本能直接落在甲板/船顶。
+  新增开关 `endship.flyExact`（默认开），关掉恢复旧行为。
+- 飞行途中落地但没到船边时，不再一直等 `travel` 的到达判定：检测到「本轮起飞过、现在不滑翔」
+  超过 2 秒就转入步行接近或明确报「已落地但离船太远」。
+
 ## 1.0.4 — 2026-11-07
 
 ### 新增

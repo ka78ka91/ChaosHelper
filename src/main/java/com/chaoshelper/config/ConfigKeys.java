@@ -96,6 +96,7 @@ public final class ConfigKeys {
 		list.add(new Entry("endship.sweepStep", "int", "256", "每段巡航的距离（格）", () -> config.endship.sweepStep));
 		list.add(new Entry("endship.sweepCorridor", "int", "96", "巡航走廊半宽（格），更远的船留到以后", () -> config.endship.sweepCorridor));
 		list.add(new Entry("endship.sweepBacktrack", "int", "48", "允许回头搜的距离（格）", () -> config.endship.sweepBacktrack));
+		list.add(new Entry("endship.flyExact", "boolean", "true", "按船的真实高度飞（GoalBlock），否则 Baritone 会在 y=64 找落点", () -> config.endship.flyExact));
 
 		list.add(new Entry("autolog.healthThreshold", "double", "6", "血量（含伤害吸收）低于该值且无图腾时退服", () -> config.autolog.healthThreshold));
 		list.add(new Entry("autolog.requireNoTotem", "boolean", "true", "只在背包没有不死图腾时退服", () -> config.autolog.requireNoTotem));

@@ -94,6 +94,8 @@ public final class EndShipFinder {
 	private int sweepLegs;
 	private int stuckLegs;
 	private boolean warnedLegError;
+	/** The elytra was actually deployed during this ship flight. */
+	private boolean flewThisLeg;
 
 	/** Called once per client tick by the {@code endship} module. */
 	public void tick(MinecraftClient client) {
@@ -173,7 +175,7 @@ public final class EndShipFinder {
 						target = next;
 						enterApproach(mod);
 					} else {
-						startFlight(mod, player, next);
+						startFlight(mod, player, next, config);
 					}
 					return;
 				}
@@ -198,7 +200,7 @@ public final class EndShipFinder {
 						target = found;
 						enterApproach(mod);
 					} else {
-						startFlight(mod, player, found);
+						startFlight(mod, player, found, config);
 					}
 					return;
 				}
@@ -226,10 +228,25 @@ public final class EndShipFinder {
 					phase = Phase.IDLE;
 					return;
 				}
+				phaseTicks++;
 				double horizontal = horizontalDistance(player, target);
+				if (player.isGliding()) {
+					flewThisLeg = true;
+				}
 				if (horizontal <= config.approachRadius) {
 					mod.travel().stop(false);
 					enterApproach(mod);
+					return;
+				}
+				if (flewThisLeg && !player.isGliding() && phaseTicks > 40) {
+					// Touched down. With an exact-Y goal Baritone often lands on the
+					// ship itself; either way the rest is walking.
+					mod.travel().stop(false);
+					if (horizontal <= Math.max(config.approachRadius * 4.0, 160.0)) {
+						enterApproach(mod);
+					} else {
+						abort(mod, "已落地但离船太远");
+					}
 					return;
 				}
 				if (!mod.travel().hasTarget()) {
@@ -377,8 +394,14 @@ public final class EndShipFinder {
 		return names[index];
 	}
 
-	private void startFlight(ChaosHelperClient mod, ClientPlayerEntity player, ShipPoint ship) {		mod.moduleManager().setEnabled("travel", true);
-		String error = mod.travel().start(ship.x, ship.y, ship.z, TravelModule.Mode.ELYTRA, "末地船");
+	private void startFlight(ChaosHelperClient mod, ClientPlayerEntity player, ShipPoint ship,
+			ChaosConfig.EndShipConfig config) {
+		mod.moduleManager().setEnabled("travel", true);
+		String error = config.flyExact
+				// GoalBlock: Baritone keeps the ship's Y instead of cruising at 64
+				// and looking for a landing spot on the island far below.
+				? mod.travel().startExact(ship.x, ship.y, ship.z, "末地船", false)
+				: mod.travel().start(ship.x, ship.y, ship.z, TravelModule.Mode.ELYTRA, "末地船");
 		if (error != null) {
 			mod.notifications().error("自动搜船：飞往末地船失败 - " + error);
 			target = null;
@@ -388,6 +411,7 @@ public final class EndShipFinder {
 		target = ship;
 		phase = Phase.FLY;
 		phaseTicks = 0;
+		flewThisLeg = false;
 	}
 
 	private void enterApproach(ChaosHelperClient mod) {

@@ -8,7 +8,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 > 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.4**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.5**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -80,8 +80,9 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `/chaoshelper autopath ...` | 旧名别名，强制步行 |
 | `/chaoshelper elytrafly ...` | 旧名别名，强制鞘翅 |
 
-> 鞘翅直飞只传 X/Z（Baritone 的 `GoalXZ`），落点由 Baritone 找安全地表；
-> **地下/洞穴目标请用 `walk`**，否则只会落在目标正上方的地面。
+> 鞘翅直飞传的是 X/Z（Baritone 的 `GoalXZ`），它内部会把巡航高度**硬编码成 y=64**，
+> 然后再找「安全落点」。所以**地下/洞穴目标请用 `walk`**，否则只会落在目标正上方的地面。
+> 末地船走的是另一条路：传 `GoalBlock`（保留船的真实高度），见下面的末地船章节。
 
 ### 鞘翅辅助
 
@@ -257,6 +258,21 @@ HUD 编辑器：
 3. **停飞接近**：水平距离 ≤ `approachRadius`（默认 32 格）时停飞，用 Baritone **步行寻路**走向宝藏室的展示框。
 4. **取鞘翅**：进入 `takeRange`（默认 3 格，等于服务端交互上限）后攻击展示框；未变空会每 20 tick 重试。
 5. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后继续沿原方向飞。
+
+### 直接落到船上（`endship.flyExact`，默认开）
+
+之前飞到船附近会「落偏」，根因在 Baritone：
+
+- `IElytraProcess.pathTo(GoalXZ)` 会把目标 Y **直接写成 64**（`ElytraProcess.pathTo` 字节码里的
+  `bipush 64`），然后进入 `Path complete, searching for safe landing spot...` 的落点搜索。
+  末地岛的地表通常就在 y=50~70，所以它很容易落在岛面或船底的地面上，而不是船上。
+- `pathTo(GoalBlock)` 才会用你给的真实 Y。现在末地船的目标改成 `GoalBlock(船的 x, y, z)`，
+  Baritone 会按船的高度规划，落点搜索也从船所在的位置开始，**基本会直接落在甲板/船顶**。
+- 落点仍然由 Baritone 的安全落点算法决定：它不会「穿墙飞进宝藏室」，因为宝藏室是封闭的，
+  只有船头一个小门。所以最后一小段仍然是落地后走进去，这也是原版里人肉操作的做法。
+- 落地后如果就在船上，脚本会继续用步行寻路走向展示框；走不进去就转「手动」，你在甲板上
+  往下挖一格/走门进去即可，3 格内仍会自动取下鞘翅。
+- 想恢复旧行为（按 y=64 巡航后找落点）：`endship.flyExact = false`。
 
 ### 单向前进巡航（`endship.sweep`，默认开）
 

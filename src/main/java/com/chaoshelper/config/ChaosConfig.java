@@ -401,6 +401,12 @@ public final class ChaosConfig {
 		public int sweepCorridor = 96;
 		/** How far behind the current progress a ship may be and still be looted. */
 		public int sweepBacktrack = 48;
+		/**
+		 * Hand Baritone the ship's real Y (GoalBlock). With an XZ goal it cruises
+		 * at y=64 and then hunts for a landing spot wherever that leads, which is
+		 * why it used to touch down far away from the ship instead of on it.
+		 */
+		public boolean flyExact = true;
 
 		void normalize() {
 			scanRadiusChunks = clamp(scanRadiusChunks, 1, 16);
