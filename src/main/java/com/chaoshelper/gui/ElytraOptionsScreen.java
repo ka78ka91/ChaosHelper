@@ -157,7 +157,7 @@ public final class ElytraOptionsScreen extends Screen {
 			line = line + " (注意: 两者会互相干扰)";
 		}
 		context.drawTextWithShadow(textRenderer,
-				"自动飞行（旅行/Baritone）期间默认不切甲，避免把航线打断", left, 188, 0xFFAAAAAA);
+				"自动飞行期间也会切甲；Baritone 掉线后会自动重新发起航线", left, 188, 0xFFAAAAAA);
 		context.drawTextWithShadow(textRenderer, line, left, 202, 0xFF88FF88);
 		super.render(context, mouseX, mouseY, delta);
 	}

@@ -425,6 +425,7 @@ public final class ChaosCommand {
 			error(context.getSource(), "没有已发现的未搜末地船（开启 endship 模块并在末地飞行扫描）");
 			return 0;
 		}
+		mod.endShipFinder().resumeAutomation();
 		double distance = Math.sqrt(target.distanceSquaredTo(client.player.getX(), client.player.getY(),
 				client.player.getZ()));
 		feedback(context.getSource(), String.format(Locale.ROOT, "末地船: %d, %d, %d (%.0f 格)",

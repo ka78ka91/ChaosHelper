@@ -83,6 +83,11 @@ public final class ConfigKeys {
 		list.add(new Entry("endship.chunksPerScan", "int", "3", "每次扫描的区块数", () -> config.endship.chunksPerScan));
 		list.add(new Entry("endship.intervalTicks", "int", "2", "扫描间隔（tick）", () -> config.endship.intervalTicks));
 		list.add(new Entry("endship.dedupeRadius", "int", "48", "同一艘船的信号合并半径（格）", () -> config.endship.dedupeRadius));
+		list.add(new Entry("endship.autoLoot", "boolean", "true", "自动搜船：Baritone 飞过去 → 走到展示框 → 取鞘翅 → 下一艘", () -> config.endship.autoLoot));
+		list.add(new Entry("endship.approachRadius", "int", "32", "距船多少格停飞并开始步行接近（格）", () -> config.endship.approachRadius));
+		list.add(new Entry("endship.takeRange", "double", "3", "攻击展示框的距离（服务端上限 3 格）", () -> config.endship.takeRange));
+		list.add(new Entry("endship.approachTimeoutTicks", "int", "600", "步行接近超时（tick），超时转手动", () -> config.endship.approachTimeoutTicks));
+		list.add(new Entry("endship.manualTimeoutTicks", "int", "1200", "等待玩家手动飞入船内的超时（tick）", () -> config.endship.manualTimeoutTicks));
 		list.add(new Entry("endship.chainNext", "boolean", "true", "取走鞘翅后自动飞往下一艘未搜的末地船", () -> config.endship.chainNext));
 		list.add(new Entry("endship.chainDelayTicks", "int", "60", "转场前等待（tick），留给拾取鞘翅", () -> config.endship.chainDelayTicks));
 		list.add(new Entry("endship.chainRange", "int", "0", "转场距离上限（格），0 = 不限", () -> config.endship.chainRange));
@@ -101,7 +106,7 @@ public final class ConfigKeys {
 		list.add(new Entry("travel.elytraSwapDurabilityLimit", "int", "0", "甲飞：0=总是启用，>0 表示仅当剩余耐久低于该值时启用", () -> config.travel.elytraSwapDurabilityLimit));
 		list.add(new Entry("travel.elytraSwapMaxSwaps", "int", "0", "甲飞：单次运行最多切换次数，0=不限，超限自动放弃", () -> config.travel.elytraSwapMaxSwaps));
 		list.add(new Entry("travel.elytraSwapClearance", "int", "24", "甲飞要求的最低离地净空（格）", () -> config.travel.elytraSwapClearance));
-		list.add(new Entry("travel.elytraSwapDuringTravel", "boolean", "false", "自动飞行（旅行/Baritone）期间也执行甲飞；会让自动飞行中断", () -> config.travel.elytraSwapDuringTravel));
+		list.add(new Entry("travel.elytraSwapDuringTravel", "boolean", "true", "自动飞行期间也执行甲飞；航线被打断后会自动重新发起", () -> config.travel.elytraSwapDuringTravel));
 
 		list.add(new Entry("xaero.enabled", "boolean", "true", "启用 Xaero 路点集成", () -> config.xaero.enabled));
 		list.add(new Entry("xaero.autoMarkEnd", "boolean", "true", "末地自动标记末地城/鞘翅", () -> config.xaero.autoMarkEnd));

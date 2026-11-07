@@ -6,14 +6,14 @@ import com.chaoshelper.world.EndShipFinder;
 import net.minecraft.client.MinecraftClient;
 
 /**
- * Runs the End Ship finder. Passive: it only reads loaded chunks and writes
- * local markers, so it is safe to leave on while flying.
+ * Runs the End Ship finder and its looting loop (fly → walk in → take → next).
+ * Passive detection, plus Baritone calls the player could make by hand.
  */
 public final class EndShipModule extends Module {
 	private final EndShipFinder finder;
 
 	public EndShipModule(EndShipFinder finder) {
-		super("endship", "末地船搜寻", true, false, true);
+		super("endship", "末地船自动搜刮", true, true, true);
 		this.finder = finder;
 	}
 

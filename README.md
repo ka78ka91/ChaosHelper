@@ -141,7 +141,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `travel` | 旅行 | 步行 / 鞘翅直飞 / 滑翔三合一；普通输入不打断，按 `V` 停止、`P` panic |
 | `autoeat` | 自动进食 | 阈值触发，尊重冷却与进食动画，玩家输入即暂停 |
 | `autotake` | 自动取鞘翅 | 扫描附近展示框，取出里面鞘翅；可设范围与冷却，已有鞘翅时跳过 |
-| `endship` | 末地船搜寻 | 飞行中扫描龙首/酿造台/鞘翅展示框，发现即标记（Xaero 路点 + 本地列表）；取完鞘翅可自动飞下一艘 |
+| `endship` | 末地船自动搜刮 | 扫描龙首/酿造台/鞘翅展示框 → Baritone 飞过去 → 步行接近展示框 → 取鞘翅 → 下一艘；发现即标记 Xaero 路点与本地列表 |
 | `autolog` | 自动退服 | 血量低于阈值且背包（含副手）没有不死图腾时断开连接，只在多人模式生效 |
 
 HUD 默认布局：左上玩家、右上坐标/模块/记录点、左下掉落物、右下自身与目标；
@@ -226,11 +226,11 @@ HUD 编辑器：
   连续失败时功能会自行放弃。
 - 收益很低：**耐久 III + 经验修补**通常已经解决问题，零风险、零操作，建议优先使用。
 - 两个功能同时开启会互相干扰：甲飞每秒中断一次滑翔，会不断打断爬升的俯仰循环，建议只开一个。
-- **自动飞行期间默认不切甲**：`travel` 旅行目标进行中、或 Baritone 鞘翅航线正在跑时，甲飞不会开始新的切换循环。
-  原因是切走胸甲必然让 `isGliding()` 掉几 tick，Baritone 会把它当成「飞行结束」而收线。
-  需要边飞边省耐久可打开 `travel.elytraSwapDuringTravel`，但**会中断自动飞行**，自行权衡。
+- **自动飞行期间也会切甲**（`travel.elytraSwapDuringTravel`，默认开）：切走胸甲必然让 `isGliding()` 掉几 tick，
+  Baritone 会把它当成「飞行结束」。所以 `travel` 在检测到鞘翅流程掉线时会**自动重新发起同一个目标**
+  （最多 6 次、每次间隔 40 tick），航线不会永久停在半路；不想在飞行中切甲就把它关掉。
 
-## 末地船搜寻（`endship`，默认开启）
+## 末地船自动搜刮（`endship`，默认开启）
 
 在末地飞行时找船，**不能用潜影贝**：潜影贝只在末地城的地面生成，末地船上没有，
 飞到高空时也早已超出实体同步距离。所以检测只看「只有末地船才有的东西」：
@@ -248,14 +248,22 @@ HUD 编辑器：
   写入 `data.json` 并（可选）写一个名为「末地船」的 Xaero 路点，同时在 HUD 提示。
 - 展示框变空（无论自动取还是你手动取）即视为「已搜」，不会重复转场。
 
-自动转场：
+自动搜刮流程（`endship.autoLoot`，默认开）：
 
-- `endship.chainNext`（默认开）为真时，取完一艘的鞘翅后等 `chainDelayTicks`（默认 60 tick，留给拾取），
-  自动启用 `travel` 并以**鞘翅模式**飞向最近的未搜末地船；没有烟花会退化为纯滑翔。
+1. **选船**：取最近的未搜末地船作为目标；`travel` 有其它目标时不动，避免和手动旅行打架。
+2. **飞过去**：自动启用 `travel`，用 Baritone 鞘翅（`elytra`）飞向该船；没烟花会退化为纯滑翔。
+3. **停飞接近**：水平距离 ≤ `approachRadius`（默认 32 格）时停飞，用 Baritone **步行寻路**走向宝藏室的展示框。
+4. **取鞘翅**：进入 `takeRange`（默认 3 格，等于服务端交互上限）后攻击展示框；未变空会每 20 tick 重试。
+5. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后回到第 1 步。
+
+兜底：船悬空、步行路径不可达、或接近超时（`approachTimeoutTicks`，默认 600 tick）时会提示
+「请手动飞进船内」，进入等待状态；你飞到展示框 3 格内仍会自动攻击。等待超过 `manualTimeoutTicks`
+（默认 1200 tick）才暂停回待机。
+
+- `endship.chainNext` 关掉就只搜一艘，取完停下；重新打开或重开模块会继续。
 - 用 `/chaoshelper travel goto ship` 或 `/chaoshelper ship list` 手动查看/前往。
-- 注意：鞘翅直飞只按 X/Z 导航，Baritone 会在船附近的「安全落点」降落，之后通常还要自己飞进船内；
-  取到鞘翅后链式转场才会继续。
 - HUD 加一个「末地船」元素即可随时看到方位（`{dir}`）与 `{looted}` 状态，便于在高空转向。
+- `autotake` 模块不再是必需项：搜刮流程自己会取；它仍然可以单独用来取普通展示框里的鞘翅。
 
 ## 自动退服（`autolog`，默认关闭）
 
@@ -354,6 +362,11 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `endship.chunksPerScan` | 3 | 每次扫描的区块数 |
 | `endship.intervalTicks` | 2 | 扫描间隔（tick） |
 | `endship.dedupeRadius` | 48 | 同一艘船的信号合并半径（格） |
+| `endship.autoLoot` | true | 自动搜刮：飞过去 → 走到展示框 → 取鞘翅 → 下一艘 |
+| `endship.approachRadius` | 32 | 距船多少格停飞并开始步行接近 |
+| `endship.takeRange` | 3 | 攻击展示框的距离（服务端上限 3 格） |
+| `endship.approachTimeoutTicks` | 600 | 步行接近超时（tick），超时转手动 |
+| `endship.manualTimeoutTicks` | 1200 | 等待手动飞入船内的超时（tick） |
 | `endship.chainNext` | true | 取走鞘翅后自动飞往下一艘未搜的船 |
 | `endship.chainDelayTicks` | 60 | 转场前等待，留给拾取鞘翅 |
 | `endship.chainRange` | 0 | 转场距离上限，0 = 不限 |
@@ -369,7 +382,7 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `travel.elytraSwapDurabilityLimit` | 0 | 0=总是启用；>0 表示剩余耐久低于该值才启用 |
 | `travel.elytraSwapMaxSwaps` | 0 | 单轮最多切换次数，0=不限 |
 | `travel.elytraSwapClearance` | 24 | 甲飞要求的最低离地净空（格） |
-| `travel.elytraSwapDuringTravel` | false | 自动飞行期间也切甲；会让旅行/Baritone 航线中断 |
+| `travel.elytraSwapDuringTravel` | true | 自动飞行期间也切甲；掉线后自动重新发起航线 |
 | `xaero.enabled` | true | 启用 Xaero 路点集成 |
 | `xaero.autoMarkEnd` | true | 末地自动标记末地城/鞘翅 |
 | `xaero.setName` | chaoshelper | 写入 Xaero 的集合名（新目录） |

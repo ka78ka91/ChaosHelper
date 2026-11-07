@@ -133,6 +133,28 @@ public final class BaritoneBridge {
 		}
 	}
 
+	/**
+	 * Re-issues an elytra goal after the process dropped out (e.g. a brief
+	 * non-gliding tick during an armour swap). Resets the internal state first so
+	 * a half-finished landing does not block the new goal.
+	 *
+	 * @return null on success, or a user-facing error message
+	 */
+	public synchronized String restartElytra(int x, int z) {
+		if (!isElytraAvailable()) {
+			return "ElytraFly 不可用: " + elytraUnavailableReason();
+		}
+		try {
+			resetElytra.invoke(elytraProcess);
+			Object goal = goalXZConstructor.newInstance(x, z);
+			pathToGoal.invoke(elytraProcess, goal);
+			return null;
+		} catch (Throwable throwable) {
+			ChaosHelperClient.LOGGER.error("Baritone 恢复鞘翅路径失败", throwable);
+			return "Baritone 恢复鞘翅路径失败: " + throwable.getMessage();
+		}
+	}
+
 	public synchronized void cancel() {
 		if (!initialized || !available) {
 			return;

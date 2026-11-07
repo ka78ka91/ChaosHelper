@@ -164,6 +164,7 @@ public final class ModuleSettings {
 
 	private static void endShip(List<Setting> list, ChaosHelperClient mod, ChaosConfig config) {
 		ChaosConfig.EndShipConfig ship = config.endship;
+		list.add(Setting.bool("自动搜船(飞→取→下一艘)", () -> ship.autoLoot, value -> ship.autoLoot = value));
 		list.add(Setting.bool("发现时提示", () -> ship.notify, value -> ship.notify = value));
 		list.add(Setting.bool("写入 Xaero 路点", () -> ship.markXaero, value -> ship.markXaero = value));
 		list.add(Setting.bool("只在末地", () -> ship.onlyEnd, value -> ship.onlyEnd = value));
@@ -171,6 +172,10 @@ public final class ModuleSettings {
 				value -> ship.scanRadiusChunks = value));
 		list.add(Setting.integer("每刻扫描区块", 1, 16, 1, () -> ship.chunksPerScan, value -> ship.chunksPerScan = value));
 		list.add(Setting.integer("信号合并半径", 16, 256, 8, () -> ship.dedupeRadius, value -> ship.dedupeRadius = value));
+		list.add(Setting.integer("停飞距离", 8, 128, 8, () -> ship.approachRadius, value -> ship.approachRadius = value));
+		list.add(Setting.decimal("取鞘翅距离", 1, 6, 0.5, () -> ship.takeRange, value -> ship.takeRange = value));
+		list.add(Setting.integer("接近超时(tick)", 40, 2000, 20, () -> ship.approachTimeoutTicks,
+				value -> ship.approachTimeoutTicks = value));
 		list.add(Setting.bool("取完鞘翅飞下一艘", () -> ship.chainNext, value -> ship.chainNext = value));
 		list.add(Setting.integer("转场等待(tick)", 0, 400, 10, () -> ship.chainDelayTicks,
 				value -> ship.chainDelayTicks = value));

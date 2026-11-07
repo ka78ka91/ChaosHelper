@@ -5,14 +5,22 @@
 
 ## 1.0.3 — 2026-11-07
 
+### 新增
+
+- **末地船自动搜刮（合并搜船 + 取鞘翅）**：`endship` 现在是一条完整流水线——
+  扫描龙首/酿造台/鞘翅展示框 → 选最近的未搜船 → Baritone 鞘翅飞过去 →
+  距船 `approachRadius` 内停飞、步行寻路到宝藏室 → 3 格内攻击展示框 →
+  标记已搜 → 等 `chainDelayTicks` 后飞下一艘。
+  船悬空或路径不可达时提示手动飞入，进入等待状态；靠近展示框仍会自动取。
+  新增配置：`endship.autoLoot`、`approachRadius`、`takeRange`、`approachTimeoutTicks`、`manualTimeoutTicks`。
+- `autotake` 不再是搜刮流程的必需项，搜刮流程自己会取；它仍可单独使用。
+
 ### 修复
 
-- **甲飞会暂停自动飞行**：甲飞切走胸甲时 `isGliding()` 必然掉几 tick，Baritone 的鞘翅流程会把它当成
-  「飞行结束」并收线，于是旅行/航线停在半路。现在只要 `travel` 有目标、或 Baritone 鞘翅航线正在跑，
-  甲飞就不再开始新的切换循环；已在进行的循环会正常收尾，保证鞘翅装回胸甲槽。
-- 新增 `travel.elytraSwapDuringTravel`（默认 `false`）：需要边飞边省耐久时可以打开，
-  但会中断自动飞行，鞘翅设置页和状态栏都有明确提示。
-- 甲飞状态栏显示「自动飞行中暂停」，不再让人误以为功能失效。
+- **甲飞会暂停自动飞行**：甲飞切走胸甲时 `isGliding()` 必然掉几 tick，Baritone 会把它当成
+  「飞行结束」并收线。现在 `travel` 检测到鞘翅流程掉线时，会自动 `resetState` + 重新发起同一目标
+  （最多 6 次、间隔 40 tick），航线不会永久停在半路；`travel.elytraSwapDuringTravel` 默认改为 `true`。
+- 甲飞状态栏的「自动飞行中暂停」提示只在关闭该选项时出现。
 
 ## 1.0.2 — 2026-11-07
 

@@ -371,6 +371,16 @@ public final class ChaosConfig {
 		public int rescanTicks = 100;
 		/** Signals within this distance belong to the same ship. */
 		public int dedupeRadius = 48;
+		/** Full loop: Baritone flight, walk to the frame, take, next ship. */
+		public boolean autoLoot = true;
+		/** Stop the elytra flight and start walking once this close (blocks). */
+		public int approachRadius = 32;
+		/** Attack range for the elytra frame; the server rejects anything over 3. */
+		public double takeRange = 3.0;
+		/** How long the walk path to the frame may take before asking the player. */
+		public int approachTimeoutTicks = 600;
+		/** How long to wait for the player to fly in by hand. */
+		public int manualTimeoutTicks = 1200;
 		/** Fly to the next unlooted ship after taking an elytra. */
 		public boolean chainNext = true;
 		/** Wait this long before setting off, so the elytra is picked up first. */
@@ -384,6 +394,10 @@ public final class ChaosConfig {
 			intervalTicks = clamp(intervalTicks, 1, 40);
 			rescanTicks = clamp(rescanTicks, 20, 1200);
 			dedupeRadius = clamp(dedupeRadius, 16, 256);
+			approachRadius = clamp(approachRadius, 8, 128);
+			takeRange = clamp(takeRange, 1, 6);
+			approachTimeoutTicks = clamp(approachTimeoutTicks, 40, 2000);
+			manualTimeoutTicks = clamp(manualTimeoutTicks, 100, 6000);
 			chainDelayTicks = clamp(chainDelayTicks, 0, 400);
 			chainRange = clamp(chainRange, 0, 30000);
 		}
@@ -453,11 +467,11 @@ public final class ChaosConfig {
 		/** Minimum clearance above the ground required before swapping. */
 		public int elytraSwapClearance = 24;
 		/**
-		 * 1.0.3: a swap necessarily drops the glide flag for a couple of ticks,
-		 * and Baritone's elytra process reads that as "flight over". Off by
-		 * default so 甲飞 can never pause an active auto-flight.
+		 * 1.0.3: a swap drops the glide flag for a couple of ticks. Default true:
+		 * the travel module now re-issues the Baritone goal automatically, so the
+		 * route continues instead of stopping. Set false to never swap in flight.
 		 */
-		public boolean elytraSwapDuringTravel = false;
+		public boolean elytraSwapDuringTravel = true;
 
 		void normalize() {
 			if (mode == null || !mode.matches("auto|walk|elytra")) {

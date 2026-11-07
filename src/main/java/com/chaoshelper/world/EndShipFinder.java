@@ -29,37 +29,49 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * Finds End Ships from the air and remembers where they are.
+ * Finds End Ships from the air, then runs the whole looting loop: Baritone flies
+ * to the ship, the player is walked to the treasure room, the elytra is taken,
+ * the ship is marked as looted and the next one is selected.
  *
- * <p>Shulkers are useless while flying: they sit inside the city below and never
- * spawn on a ship. The reliable client-visible signals are the blocks that only
- * an End Ship contains:
+ * <p>Shulkers are useless for detection while flying: they sit inside the city
+ * below and never spawn on a ship. The reliable client-visible signals are the
+ * blocks only an End Ship contains: the dragon head on the bow, the brewing
+ * stand in the treasure room, and the item frame holding the elytra.
  *
- * <ul>
- *   <li>the dragon head mounted on the bow,</li>
- *   <li>the brewing stand in the treasure room,</li>
- *   <li>the item frame that holds the elytra.</li>
- * </ul>
- *
- * <p>Chunk columns inside the render distance are scanned a few at a time and
- * only re-read after {@code rescanTicks}, so the cost stays flat. Nothing is
- * sent to the server; the ship list is local ({@code data.json}) and optionally
- * mirrored to a Xaero waypoint.
+ * <p>Everything is client-side: chunk reads, local {@code data.json}, optional
+ * Xaero waypoints, plus the same Baritone API the player can call by hand.
  */
 public final class EndShipFinder {
+	private enum Phase {
+		IDLE, FLY, APPROACH, MANUAL, WAIT_LOOT
+	}
+
 	private static final Predicate<BlockState> SIGNAL = state ->
 			state.isOf(Blocks.DRAGON_HEAD) || state.isOf(Blocks.BREWING_STAND);
 	/** A frame this close to a known ship is treated as its treasure room. */
 	private static final int FRAME_MATCH_RADIUS = 32;
+	/** Ticks to wait after the walk path ends before falling back to manual. */
+	private static final int PATH_GIVE_UP_TICKS = 40;
+	/** Retry delay after a failed flight/hand-off, so we do not loop on it. */
+	private static final int RETRY_COOLDOWN_TICKS = 400;
 
 	private final List<int[]> offsets = new ArrayList<>();
 	private final Map<Long, Integer> scannedAt = new HashMap<>();
 	private int offsetRadius = -1;
 	private int cursor;
 	private int tickCounter;
-	private int chainCountdown = -1;
-	private ShipPoint pendingChain;
 	private String lastDimension = "";
+
+	private Phase phase = Phase.IDLE;
+	private ShipPoint target;
+	private int phaseTicks;
+	private int chainDelay;
+	private int retryCooldown;
+	private boolean pathIssued;
+	/** Loop stopped until the player re-arms it (failure or chainNext=false). */
+	private boolean paused;
+	/** The pause came from chainNext=false, so flipping it back on resumes. */
+	private boolean chainStop;
 
 	/** Called once per client tick by the {@code endship} module. */
 	public void tick(MinecraftClient client) {
@@ -73,10 +85,6 @@ public final class EndShipFinder {
 			resetForWorldChange();
 			return;
 		}
-		if (chainCountdown > 0 && --chainCountdown == 0) {
-			startChain(mod);
-		}
-
 		ChaosConfig.EndShipConfig config = mod.config().endship;
 		if (config.onlyEnd && !world.getRegistryKey().equals(World.END)) {
 			return;
@@ -86,14 +94,244 @@ public final class EndShipFinder {
 			lastDimension = dimension;
 			scannedAt.clear();
 			cursor = 0;
+			resetAutomation();
 		}
 		tickCounter++;
+		autoLootTick(mod, client, config);
 		if (tickCounter % Math.max(1, config.intervalTicks) != 0) {
 			return;
 		}
 		ensureOffsets(config.scanRadiusChunks);
 		scanFrames(mod, client, dimension, config);
 		scanChunks(mod, client, dimension, config);
+	}
+
+	// ---------------------------------------------------------------- looting
+
+	private void autoLootTick(ChaosHelperClient mod, MinecraftClient client, ChaosConfig.EndShipConfig config) {
+		if (retryCooldown > 0) {
+			retryCooldown--;
+		}
+		if (chainDelay > 0) {
+			chainDelay--;
+		}
+		if (!config.autoLoot) {
+			return;
+		}
+		if (paused) {
+			if (!chainStop || !config.chainNext) {
+				return;
+			}
+			// The player re-enabled chaining; arm the loop again.
+			paused = false;
+			chainStop = false;
+		}
+		ClientPlayerEntity player = client.player;
+		if (player == null || client.world == null) {
+			return;
+		}
+		if (target != null && target.looted && phase != Phase.IDLE) {
+			finishShip(mod, config);
+			return;
+		}
+		switch (phase) {
+			case IDLE -> {
+				if (chainDelay > 0 || retryCooldown > 0 || client.currentScreen != null) {
+					return;
+				}
+				if (mod.travel().hasTarget()) {
+					// The player (or another module) is already travelling.
+					return;
+				}
+				ShipPoint next = nextUnlooted(mod, null);
+				if (next == null) {
+					return;
+				}
+				if (horizontalDistance(player, next) <= config.approachRadius) {
+					target = next;
+					enterApproach(mod);
+				} else {
+					startFlight(mod, player, next);
+				}
+			}
+			case FLY -> {
+				if (target == null) {
+					phase = Phase.IDLE;
+					return;
+				}
+				double horizontal = horizontalDistance(player, target);
+				if (horizontal <= config.approachRadius) {
+					mod.travel().stop(false);
+					enterApproach(mod);
+					return;
+				}
+				if (!mod.travel().hasTarget()) {
+					// Baritone may pick a safe landing spot well away from the ship.
+					if (horizontal <= Math.max(config.approachRadius * 2.0, 128.0)) {
+						enterApproach(mod);
+					} else {
+						abort(mod, "航线结束但还没到船附近");
+					}
+				}
+			}
+			case APPROACH -> approachTick(mod, client, player, config);
+			case MANUAL -> manualTick(mod, client, player, config);
+			case WAIT_LOOT -> waitLootTick(mod, client, player, config);
+		}
+	}
+
+	private void startFlight(ChaosHelperClient mod, ClientPlayerEntity player, ShipPoint ship) {
+		mod.moduleManager().setEnabled("travel", true);
+		String error = mod.travel().start(ship.x, ship.y, ship.z, TravelModule.Mode.ELYTRA, "末地船");
+		if (error != null) {
+			mod.notifications().error("自动搜船：飞往末地船失败 - " + error);
+			target = null;
+			retryCooldown = RETRY_COOLDOWN_TICKS;
+			return;
+		}
+		target = ship;
+		phase = Phase.FLY;
+		phaseTicks = 0;
+	}
+
+	private void enterApproach(ChaosHelperClient mod) {
+		phase = Phase.APPROACH;
+		phaseTicks = 0;
+		pathIssued = false;
+		mod.notifications().info("已到末地船附近，正在接近展示框");
+	}
+
+	private void approachTick(ChaosHelperClient mod, MinecraftClient client, ClientPlayerEntity player,
+			ChaosConfig.EndShipConfig config) {
+		if (target == null) {
+			phase = Phase.IDLE;
+			return;
+		}
+		phaseTicks++;
+		if (tryTake(client, player, target, config.takeRange)) {
+			phase = Phase.WAIT_LOOT;
+			phaseTicks = 0;
+			return;
+		}
+		BlockPos goal = target.hasFrame()
+				? new BlockPos(target.frameX, target.frameY, target.frameZ)
+				: new BlockPos(target.x, target.y, target.z);
+		if (!pathIssued) {
+			pathIssued = true;
+			phaseTicks = 0;
+			String error = mod.baritoneBridge().startPath(goal.getX(), goal.getY(), goal.getZ());
+			if (error != null) {
+				toManual(mod, error);
+			}
+			return;
+		}
+		if (!mod.baritoneBridge().isPathing()) {
+			if (phaseTicks > PATH_GIVE_UP_TICKS) {
+				toManual(mod, "步行路径无法到达展示框");
+			}
+			return;
+		}
+		if (phaseTicks > config.approachTimeoutTicks) {
+			toManual(mod, "接近超时");
+		}
+	}
+
+	private void manualTick(ChaosHelperClient mod, MinecraftClient client, ClientPlayerEntity player,
+			ChaosConfig.EndShipConfig config) {
+		if (target == null) {
+			phase = Phase.IDLE;
+			return;
+		}
+		phaseTicks++;
+		if (tryTake(client, player, target, config.takeRange)) {
+			phase = Phase.WAIT_LOOT;
+			phaseTicks = 0;
+			return;
+		}
+		if (phaseTicks > config.manualTimeoutTicks) {
+			abort(mod, "等待手动接近超时");
+		}
+	}
+
+	private void waitLootTick(ChaosHelperClient mod, MinecraftClient client, ClientPlayerEntity player,
+			ChaosConfig.EndShipConfig config) {
+		if (target == null) {
+			phase = Phase.IDLE;
+			return;
+		}
+		phaseTicks++;
+		if (target.looted) {
+			finishShip(mod, config);
+			return;
+		}
+		if (phaseTicks % 20 == 0) {
+			// Still in range: re-send the attack, the server may have rejected the first one.
+			tryTake(client, player, target, config.takeRange);
+		}
+		if (phaseTicks > 120) {
+			toManual(mod, "展示框没有变空");
+		}
+	}
+
+	private void finishShip(ChaosHelperClient mod, ChaosConfig.EndShipConfig config) {
+		phase = Phase.IDLE;
+		target = null;
+		pathIssued = false;
+		phaseTicks = 0;
+		if (!config.chainNext) {
+			paused = true;
+			chainStop = true;
+			mod.notifications().info("链式转场已关闭，自动搜船暂停");
+			return;
+		}
+		chainDelay = Math.max(1, config.chainDelayTicks);
+	}
+
+	private void toManual(ChaosHelperClient mod, String reason) {
+		mod.baritoneBridge().cancel();
+		phase = Phase.MANUAL;
+		phaseTicks = 0;
+		mod.notifications().info("自动搜船：请手动飞进船内（" + reason + "），靠近展示框 3 格会自动取");
+	}
+
+	private void abort(ChaosHelperClient mod, String reason) {
+		mod.notifications().info("自动搜船暂停：" + reason + "（/chaoshelper ship goto 继续）");
+		mod.baritoneBridge().cancel();
+		phase = Phase.IDLE;
+		target = null;
+		pathIssued = false;
+		paused = true;
+		chainStop = false;
+	}
+
+	/** Attacks the known elytra frame when it is within reach. */
+	private boolean tryTake(MinecraftClient client, ClientPlayerEntity player, ShipPoint ship, double range) {
+		if (client.interactionManager == null || client.currentScreen != null
+				|| client.world == null || !ship.hasFrame()) {
+			return false;
+		}
+		BlockPos pos = new BlockPos(ship.frameX, ship.frameY, ship.frameZ);
+		double limit = range * range;
+		for (Entity entity : client.world.getEntities()) {
+			if (!(entity instanceof ItemFrameEntity frame)) {
+				continue;
+			}
+			if (!frame.getBlockPos().equals(pos) || !frame.getHeldItemStack().isOf(Items.ELYTRA)) {
+				continue;
+			}
+			if (player.squaredDistanceTo(frame) > limit) {
+				continue;
+			}
+			client.interactionManager.attackEntity(player, frame);
+			return true;
+		}
+		return false;
+	}
+
+	private static double horizontalDistance(ClientPlayerEntity player, ShipPoint ship) {
+		double dx = ship.x + 0.5 - player.getX();
+		double dz = ship.z + 0.5 - player.getZ();
+		return Math.sqrt(dx * dx + dz * dz);
 	}
 
 	// ---------------------------------------------------------------- scanning
@@ -291,43 +529,6 @@ public final class EndShipFinder {
 		if (mod.config().endship.notify) {
 			mod.notifications().info("末地船已搜（" + reason + "），" + ship.x + ", " + ship.z);
 		}
-		if (!mod.config().endship.chainNext) {
-			return;
-		}
-		ShipPoint next = nextUnlooted(mod, ship);
-		if (next == null) {
-			if (mod.config().endship.notify) {
-				mod.notifications().info("没有其他已发现的未搜末地船，转场结束");
-			}
-			return;
-		}
-		pendingChain = next;
-		chainCountdown = Math.max(1, mod.config().endship.chainDelayTicks);
-		if (mod.config().endship.notify) {
-			mod.notifications().info(String.format(Locale.ROOT, "%d tick 后飞往下一艘 %d, %d",
-					chainCountdown, next.x, next.z));
-		}
-	}
-
-	private void startChain(ChaosHelperClient mod) {
-		ShipPoint target = pendingChain;
-		pendingChain = null;
-		ChaosConfig.EndShipConfig config = mod.config().endship;
-		if (target == null || !config.chainNext) {
-			return;
-		}
-		ClientPlayerEntity player = mod.client().player;
-		if (player == null || mod.client().world == null) {
-			return;
-		}
-		if (!target.dimension.equals(mod.client().world.getRegistryKey().getValue().toString())) {
-			return;
-		}
-		mod.moduleManager().setEnabled("travel", true);
-		String error = mod.travel().start(target.x, target.y, target.z, TravelModule.Mode.ELYTRA, "末地船");
-		if (error != null) {
-			mod.notifications().error("飞往下一艘末地船失败: " + error);
-		}
 	}
 
 	// ------------------------------------------------------------------ queries
@@ -388,15 +589,36 @@ public final class EndShipFinder {
 		mod.dataStore().ships().clear();
 		mod.dataStore().saveQuietly();
 		scannedAt.clear();
+		resetAutomation();
+	}
+
+	/** Re-arms the loop after the player starts the flow again. */
+	public void resumeAutomation() {
+		paused = false;
+		chainStop = false;
+		retryCooldown = 0;
+		chainDelay = 0;
+		phase = Phase.IDLE;
+		target = null;
 	}
 
 	public void resetForWorldChange() {
 		scannedAt.clear();
 		cursor = 0;
 		tickCounter = 0;
-		chainCountdown = -1;
-		pendingChain = null;
 		lastDimension = "";
+		resetAutomation();
+	}
+
+	private void resetAutomation() {
+		phase = Phase.IDLE;
+		target = null;
+		phaseTicks = 0;
+		chainDelay = 0;
+		retryCooldown = 0;
+		pathIssued = false;
+		paused = false;
+		chainStop = false;
 	}
 
 	public String status() {
@@ -405,6 +627,13 @@ public final class EndShipFinder {
 			return "未在世界中";
 		}
 		String dimension = mod.client().world.getRegistryKey().getValue().toString();
-		return "已发现 " + shipsIn(dimension).size() + " 艘（未搜 " + unlootedCount(dimension) + "）";
+		String state = switch (phase) {
+			case IDLE -> paused ? "已暂停" : "待机";
+			case FLY -> "飞往 " + (target == null ? "?" : target.x + ", " + target.z);
+			case APPROACH -> "接近展示框";
+			case MANUAL -> "等待手动接近";
+			case WAIT_LOOT -> "取鞘翅中";
+		};
+		return state + " · 已发现 " + shipsIn(dimension).size() + "（未搜 " + unlootedCount(dimension) + "）";
 	}
 }

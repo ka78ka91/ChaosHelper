@@ -23,6 +23,9 @@ import java.util.Locale;
  * death, a world change, or the optional legacy cancel flags in the ClickGUI.
  */
 public final class TravelModule extends Module {
+	/** Auto-restart attempts when Baritone's elytra process stops mid-route. */
+	private static final int ELYTRA_RESTARTS = 6;
+	private static final int ELYTRA_RESTART_COOLDOWN = 40;
 	public enum Mode {
 		/** Pick walk or elytra from the current state and distance. */
 		AUTO,
@@ -43,6 +46,8 @@ public final class TravelModule extends Module {
 	private int ticksSinceStart;
 	private int ticksSinceArrive;
 	private boolean glideStarted;
+	private int elytraRetries;
+	private int lastElytraRetry = -1_000;
 
 	/** Both assists are opt-in: they only run when the matching config flag is on. */
 	private final GlideClimbAssist climb = new GlideClimbAssist();
@@ -135,6 +140,8 @@ public final class TravelModule extends Module {
 		ticksSinceStart = 0;
 		ticksSinceArrive = 0;
 		glideStarted = false;
+		elytraRetries = 0;
+		lastElytraRetry = -1_000;
 		mod.notifications().info("开始旅行(" + modeLabel(mode) + "): " + targetText()
 				+ (targetLabel.isBlank() ? "" : " " + targetLabel));
 		return null;
@@ -307,12 +314,27 @@ public final class TravelModule extends Module {
 				mod.notifications().info("步行寻路已结束");
 			}
 		} else if (activeMode == Mode.ELYTRA) {
-			if (!mod.baritoneBridge().isElytraActive() && ticksSinceStart > 100) {
-				// Baritone may finish slightly above the goal; keep the marker until arrival check.
-				if (horizontal > arrive + 4) {
+			if (!mod.baritoneBridge().isElytraActive() && ticksSinceStart > 100
+					&& horizontal > arrive + 4 && gliding) {
+				if (elytraRetries >= ELYTRA_RESTARTS) {
+					// Baritone may finish slightly above the goal; keep the marker until arrival check.
 					hasTarget = false;
 					mod.baritoneBridge().cancel();
 					mod.notifications().info("鞘翅飞行已结束");
+				} else if (ticksSinceStart - lastElytraRetry >= ELYTRA_RESTART_COOLDOWN) {
+					// 甲飞 drops the glide flag for a couple of ticks and Baritone
+					// treats that as the end of the flight. Re-issue the same goal
+					// instead of giving up, so the route survives the swap.
+					String error = mod.baritoneBridge().restartElytra(targetX, targetZ);
+					lastElytraRetry = ticksSinceStart;
+					if (error == null) {
+						elytraRetries++;
+						mod.notifications().info("航线已自动恢复（" + elytraRetries + "/" + ELYTRA_RESTARTS + "）");
+					} else {
+						hasTarget = false;
+						mod.baritoneBridge().cancel();
+						mod.notifications().error("航线恢复失败: " + error);
+					}
 				}
 			}
 		}
