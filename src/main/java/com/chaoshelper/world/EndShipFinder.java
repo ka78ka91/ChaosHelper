@@ -86,15 +86,15 @@ public final class EndShipFinder {
 			return;
 		}
 		ChaosConfig.EndShipConfig config = mod.config().endship;
-		if (config.onlyEnd && !world.getRegistryKey().equals(World.END)) {
-			return;
-		}
 		String dimension = world.getRegistryKey().getValue().toString();
 		if (!dimension.equals(lastDimension)) {
 			lastDimension = dimension;
 			scannedAt.clear();
 			cursor = 0;
 			resetAutomation();
+		}
+		if (config.onlyEnd && !world.getRegistryKey().equals(World.END)) {
+			return;
 		}
 		tickCounter++;
 		autoLootTick(mod, client, config);
