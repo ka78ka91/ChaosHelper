@@ -4,9 +4,7 @@ import com.chaoshelper.ChaosHelperClient;
 import com.chaoshelper.minimap.XaeroWaypoints;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
 import net.minecraft.entity.mob.ShulkerEntity;
-import net.minecraft.item.Items;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -14,11 +12,11 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Marks End cities and elytra frames on the minimap while the player is in the End.
+ * Marks End cities on the minimap while the player is in the End.
  *
- * <p>Detection is purely client-visible: shulkers only spawn in End cities, and the
- * elytra is read from the item frame's held stack. No world generation or seed
- * access is involved.
+ * <p>Shulkers only spawn in End cities, so they are a cheap beacon for the city
+ * itself. End Ships are handled by {@link EndShipFinder}: shulkers never spawn
+ * on a ship, and while flying you are usually too high to see one.
  */
 public final class EndMarkerService {
 	private static final int SCAN_INTERVAL_TICKS = 40;
@@ -46,9 +44,7 @@ public final class EndMarkerService {
 		}
 		tickCounter = 0;
 		for (Entity entity : client.world.getEntities()) {
-			if (entity instanceof ItemFrameEntity frame && frame.getHeldItemStack().isOf(Items.ELYTRA)) {
-				mark(mod, "鞘翅", frame.getBlockPos());
-			} else if (entity instanceof ShulkerEntity shulker) {
+			if (entity instanceof ShulkerEntity shulker) {
 				mark(mod, "末地城", shulker.getBlockPos());
 			}
 		}

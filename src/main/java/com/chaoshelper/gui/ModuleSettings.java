@@ -37,6 +37,9 @@ public final class ModuleSettings {
 			case "record" -> record(list, mod, config);
 			case "travel" -> travel(list, mod, config);
 			case "autoeat" -> autoEat(list, config);
+			case "autotake" -> autoTake(list, config);
+			case "endship" -> endShip(list, mod, config);
+			case "autolog" -> autoLog(list, config);
 			default -> list.add(Setting.button("来源", () -> "动态模块", () -> {
 			}));
 		}
@@ -129,11 +132,10 @@ public final class ModuleSettings {
 		list.add(Setting.bool("滑翔模式", () -> travel.glide, value -> travel.glide = value));
 		list.add(Setting.bool("输入取消", () -> travel.cancelOnInput, value -> travel.cancelOnInput = value));
 		list.add(Setting.bool("界面取消", () -> travel.cancelOnScreen, value -> travel.cancelOnScreen = value));
-		list.add(Setting.decimal("最大距离", 100, 10000, 100, () -> travel.maxDistance,
+		list.add(Setting.decimal("最大距离(0=不限)", 0, 10000, 100, () -> travel.maxDistance,
 				value -> travel.maxDistance = value));
 		list.add(Setting.integer("起飞高度", -64, 320, 8, () -> (int) travel.minY,
 				value -> travel.minY = value));
-		list.add(Setting.bool("自动取鞘翅", () -> travel.autoTakeElytra, value -> travel.autoTakeElytra = value));
 		list.add(Setting.integer("到达半径", 1, 16, 1, () -> travel.arriveRadius, value -> travel.arriveRadius = value));
 		list.add(Setting.button("鞘翅辅助设置", () -> travel.glideClimb || travel.elytraSwap
 				? (travel.glideClimb ? "爬升+" : "") + (travel.elytraSwap ? "甲飞" : "")
@@ -151,13 +153,47 @@ public final class ModuleSettings {
 				value -> eat.preferHighestNutrition = value));
 	}
 
+	private static void autoTake(List<Setting> list, ChaosConfig config) {
+		ChaosConfig.AutoTakeConfig take = config.autotake;
+		list.add(Setting.decimal("搜索范围", 1, 16, 1, () -> take.range, value -> take.range = value));
+		list.add(Setting.bool("已有鞘翅时跳过", () -> take.onlyWhenMissing, value -> take.onlyWhenMissing = value));
+		list.add(Setting.integer("取下后冷却", 5, 200, 5, () -> take.cooldownTicks, value -> take.cooldownTicks = value));
+	}
+
+	private static void endShip(List<Setting> list, ChaosHelperClient mod, ChaosConfig config) {
+		ChaosConfig.EndShipConfig ship = config.endship;
+		list.add(Setting.bool("发现时提示", () -> ship.notify, value -> ship.notify = value));
+		list.add(Setting.bool("写入 Xaero 路点", () -> ship.markXaero, value -> ship.markXaero = value));
+		list.add(Setting.bool("只在末地", () -> ship.onlyEnd, value -> ship.onlyEnd = value));
+		list.add(Setting.integer("扫描半径(区块)", 1, 16, 1, () -> ship.scanRadiusChunks,
+				value -> ship.scanRadiusChunks = value));
+		list.add(Setting.integer("每刻扫描区块", 1, 16, 1, () -> ship.chunksPerScan, value -> ship.chunksPerScan = value));
+		list.add(Setting.integer("信号合并半径", 16, 256, 8, () -> ship.dedupeRadius, value -> ship.dedupeRadius = value));
+		list.add(Setting.bool("取完鞘翅飞下一艘", () -> ship.chainNext, value -> ship.chainNext = value));
+		list.add(Setting.integer("转场等待(tick)", 0, 400, 10, () -> ship.chainDelayTicks,
+				value -> ship.chainDelayTicks = value));
+		list.add(Setting.integer("转场距离上限", 0, 30000, 1000, () -> ship.chainRange, value -> ship.chainRange = value));
+		list.add(Setting.button("已发现", () -> mod.endShipFinder().status(), () -> {
+			// Read-only summary; clearing lives in /chaoshelper ship clear.
+		}));
+	}
+
+	private static void autoLog(List<Setting> list, ChaosConfig config) {
+		ChaosConfig.AutoLogConfig log = config.autolog;
+		list.add(Setting.decimal("血量阈值", 1, 20, 1, () -> log.healthThreshold, value -> log.healthThreshold = value));
+		list.add(Setting.bool("要求无图腾", () -> log.requireNoTotem, value -> log.requireNoTotem = value));
+		list.add(Setting.bool("仅多人模式", () -> log.onlyMultiplayer, value -> log.onlyMultiplayer = value));
+		list.add(Setting.integer("检查间隔", 1, 40, 1, () -> log.checkIntervalTicks,
+				value -> log.checkIntervalTicks = value));
+	}
+
 	/** ClickGUI category for a module id. */
 	public static String categoryOf(String id) {
 		return switch (id) {
 			case "hud", "esp", "chams" -> "render";
-			case "player-tracker", "drop-tracker", "record" -> "info";
+			case "player-tracker", "drop-tracker", "record", "endship" -> "info";
 			case "travel" -> "movement";
-			case "autoeat" -> "player";
+			case "autoeat", "autotake", "autolog" -> "player";
 			default -> "misc";
 		};
 	}

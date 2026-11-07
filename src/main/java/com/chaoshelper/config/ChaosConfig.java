@@ -34,6 +34,9 @@ public final class ChaosConfig {
 	public RecordConfig record = new RecordConfig();
 	public TeamConfig team = new TeamConfig();
 	public AutoEatConfig autoEat = new AutoEatConfig();
+	public AutoTakeConfig autotake = new AutoTakeConfig();
+	public EndShipConfig endship = new EndShipConfig();
+	public AutoLogConfig autolog = new AutoLogConfig();
 	public TravelConfig travel = new TravelConfig();
 	public XaeroConfig xaero = new XaeroConfig();
 	public BaritoneConfig baritone = new BaritoneConfig();
@@ -75,6 +78,9 @@ public final class ChaosConfig {
 		record = record == null ? new RecordConfig() : record;
 		team = team == null ? new TeamConfig() : team;
 		autoEat = autoEat == null ? new AutoEatConfig() : autoEat;
+		autotake = autotake == null ? new AutoTakeConfig() : autotake;
+		endship = endship == null ? new EndShipConfig() : endship;
+		autolog = autolog == null ? new AutoLogConfig() : autolog;
 		travel = travel == null ? new TravelConfig() : travel;
 		xaero = xaero == null ? new XaeroConfig() : xaero;
 		baritone = baritone == null ? new BaritoneConfig() : baritone;
@@ -95,6 +101,9 @@ public final class ChaosConfig {
 		record.normalize();
 		team.normalize();
 		autoEat.normalize();
+		autotake.normalize();
+		endship.normalize();
+		autolog.normalize();
 		travel.normalize();
 		xaero.normalize();
 		baritone.normalize();
@@ -322,6 +331,80 @@ public final class ChaosConfig {
 		}
 	}
 
+	/** Picks elytra out of nearby item frames; independent from travel goals. */
+	public static final class AutoTakeConfig {
+		public double range = 4.0;
+		/**
+		 * 1.0.2: default false, so a spare elytra is still taken while one is
+		 * equipped - that is the whole point of looting ships. Set true to keep
+		 * the old "only when missing" behaviour.
+		 */
+		public boolean onlyWhenMissing = false;
+		public int cooldownTicks = 20;
+
+		void normalize() {
+			range = clamp(range, 1, 16);
+			cooldownTicks = clamp(cooldownTicks, 5, 200);
+		}
+	}
+
+	/**
+	 * End Ship finder. While flying, shulkers are useless (they sit in the city
+	 * below and do not spawn on ships), so detection works on blocks that only an
+	 * End Ship contains: the dragon head at the bow, the brewing stand in the
+	 * treasure room, and the item frame holding the elytra.
+	 */
+	public static final class EndShipConfig {
+		/** Chat/HUD notification when a new ship is found. */
+		public boolean notify = true;
+		/** Write a Xaero waypoint for every new ship. */
+		public boolean markXaero = true;
+		/** End only; a player-placed dragon head elsewhere would be a false hit. */
+		public boolean onlyEnd = true;
+		/** Chunk scan radius around the player. */
+		public int scanRadiusChunks = 8;
+		/** Chunk columns scanned per scan tick. */
+		public int chunksPerScan = 3;
+		/** Scan cadence. 2 = every other tick. */
+		public int intervalTicks = 2;
+		/** A chunk is not scanned again for this many ticks. */
+		public int rescanTicks = 100;
+		/** Signals within this distance belong to the same ship. */
+		public int dedupeRadius = 48;
+		/** Fly to the next unlooted ship after taking an elytra. */
+		public boolean chainNext = true;
+		/** Wait this long before setting off, so the elytra is picked up first. */
+		public int chainDelayTicks = 60;
+		/** 0 = any distance; otherwise skip ships farther than this. */
+		public int chainRange = 0;
+
+		void normalize() {
+			scanRadiusChunks = clamp(scanRadiusChunks, 1, 16);
+			chunksPerScan = clamp(chunksPerScan, 1, 16);
+			intervalTicks = clamp(intervalTicks, 1, 40);
+			rescanTicks = clamp(rescanTicks, 20, 1200);
+			dedupeRadius = clamp(dedupeRadius, 16, 256);
+			chainDelayTicks = clamp(chainDelayTicks, 0, 400);
+			chainRange = clamp(chainRange, 0, 30000);
+		}
+	}
+
+	/** Disconnects before a death when there is no totem left to save the player. */
+	public static final class AutoLogConfig {
+		/** Health (including absorption) at or below which the client leaves. */
+		public double healthThreshold = 6.0;
+		/** Only leave when no totem of undying is left in the inventory. */
+		public boolean requireNoTotem = true;
+		/** Never trigger in singleplayer. */
+		public boolean onlyMultiplayer = true;
+		public int checkIntervalTicks = 5;
+
+		void normalize() {
+			healthThreshold = clamp(healthThreshold, 1, 20);
+			checkIntervalTicks = clamp(checkIntervalTicks, 1, 40);
+		}
+	}
+
 	/** Unified walk / elytra travel. Replaces the old autoPath + elytraFly pair. */
 	public static final class TravelConfig {
 		/** auto | walk | elytra (elytra uses direct flight). */
@@ -336,13 +419,12 @@ public final class ChaosConfig {
 		public boolean cancelOnInput = false;
 		/** Also false by default: opening a screen no longer cancels travel. */
 		public boolean cancelOnScreen = false;
-		public double maxDistance = 5000.0;
+		/** 0 = no limit. */
+		public double maxDistance = 0.0;
 		/** When true, "goto player" only accepts local teammates. */
 		public boolean gotoTeammatesOnly = false;
 		/** Minimum Y allowed when starting an elytra flight. */
 		public double minY = 64.0;
-		/** Walk to the elytra in an item frame and break the frame on arrival. */
-		public boolean autoTakeElytra = true;
 		/** Distance at which a travel goal counts as reached. */
 		public int arriveRadius = 3;
 
@@ -375,7 +457,7 @@ public final class ChaosConfig {
 			if (mode == null || !mode.matches("auto|walk|elytra")) {
 				mode = "auto";
 			}
-			maxDistance = clamp(maxDistance, 16, 100000);
+			maxDistance = clamp(maxDistance, 0, 1000000);
 			minY = clamp(minY, -64, 320);
 			arriveRadius = clamp(arriveRadius, 1, 32);
 			glideClimbClearance = clamp(glideClimbClearance, 16, 256);

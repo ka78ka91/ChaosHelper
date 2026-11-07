@@ -51,6 +51,7 @@ public final class ElytraSwapAssist {
 	private boolean swappedOut;
 	private boolean aborted;
 	private boolean warnedNoSlot;
+	private boolean warnedBlock;
 
 	/** Full reset after landing / re-enabling the option. */
 	public void resetRun() {
@@ -62,6 +63,7 @@ public final class ElytraSwapAssist {
 		failures = 0;
 		aborted = false;
 		warnedNoSlot = false;
+		warnedBlock = false;
 	}
 
 	public boolean isAborted() {
@@ -156,9 +158,15 @@ public final class ElytraSwapAssist {
 
 		switch (phase) {
 			case IDLE -> {
-				if (!canRun(client, player, clearance, config)) {
+				String reason = blockReason(client, player, clearance, config);
+				if (reason != null) {
+					if (!warnedBlock) {
+						warnedBlock = true;
+						ChaosHelperClient.get().notifications().info("甲飞未启动: " + reason);
+					}
 					return;
 				}
+				warnedBlock = false;
 				int trigger = Math.max(4, 20 - config.elytraSwapLeadTicks);
 				if (player.getGlidingTicks() < trigger) {
 					return;
@@ -221,28 +229,38 @@ public final class ElytraSwapAssist {
 		}
 	}
 
-	private boolean canRun(MinecraftClient client, ClientPlayerEntity player, int clearance,
+	/** @return null when the swap may run, otherwise a short user-facing reason. */
+	private String blockReason(MinecraftClient client, ClientPlayerEntity player, int clearance,
 			ChaosConfig.TravelConfig config) {
 		if (client.currentScreen != null || !(player.currentScreenHandler instanceof PlayerScreenHandler)) {
-			return false;
+			return "有界面打开";
 		}
-		if (!player.isGliding() || !player.isAlive()) {
-			return false;
+		if (!player.isAlive()) {
+			return "已死亡";
+		}
+		if (!player.isGliding()) {
+			return "当前没有在滑翔（展开鞘翅后才会开始）";
 		}
 		if (clearance < config.elytraSwapClearance) {
-			return false;
+			return "离地净空只有 " + clearance + " 格（要求 " + config.elytraSwapClearance + " 格）";
 		}
 		ItemStack chest = player.getEquippedStack(EquipmentSlot.CHEST);
-		if (!chest.contains(DataComponentTypes.GLIDER) || chest.willBreakNextUse()) {
-			return false;
+		if (!chest.contains(DataComponentTypes.GLIDER)) {
+			return "胸甲槽不是鞘翅";
+		}
+		if (chest.willBreakNextUse()) {
+			return "鞘翅只剩 1 点耐久，为保护装备不切换";
 		}
 		int limit = config.elytraSwapDurabilityLimit;
 		if (limit > 0 && chest.getMaxDamage() - chest.getDamage() > limit) {
-			return false;
+			return "剩余耐久仍高于设定阈值 " + limit;
 		}
 		// Sanity check that slot 6 really is the chest slot before clicking it.
 		ItemStack inSlot = player.currentScreenHandler.getSlot(CHEST_SLOT_ID).getStack();
-		return ItemStack.areEqual(chest, inSlot);
+		if (!ItemStack.areEqual(chest, inSlot)) {
+			return "胸甲槽校验失败";
+		}
+		return null;
 	}
 
 	/**

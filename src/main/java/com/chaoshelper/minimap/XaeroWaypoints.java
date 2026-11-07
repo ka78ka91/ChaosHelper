@@ -70,8 +70,9 @@ public final class XaeroWaypoints {
 		if (dir == null) {
 			return "Xaero: 未找到当前世界目录";
 		}
+		String mode = XaeroApi.available() ? "API" : "文件";
 		return "Xaero: " + dir.getParent().getFileName() + "/" + dir.getFileName()
-				+ " (" + readAll().size() + " 个路点)";
+				+ " (" + readAll().size() + " 个路点, " + mode + ")";
 	}
 
 	public static Path minimapRoot() {
@@ -251,12 +252,18 @@ public final class XaeroWaypoints {
 		if (mod == null || !mod.config().xaero.enabled || !mod.config().xaero.allowWrite) {
 			return false;
 		}
+		String safeName = sanitize(name);
+		// Prefer Xaero's own in-memory API: it persists the marker and shows it
+		// immediately. Only edit the waypoint file when the reflection bridge is
+		// unavailable (different Xaero version, or no world loaded yet).
+		if (XaeroApi.add(safeName, x, y, z)) {
+			return true;
+		}
 		Path dir = currentDimDir(true);
 		if (dir == null) {
 			return false;
 		}
 		String set = mod.config().xaero.setName;
-		String safeName = sanitize(name);
 		for (Waypoint existing : readAll()) {
 			if (existing.name().equalsIgnoreCase(safeName)
 					&& Math.abs(existing.x() - x) <= 32

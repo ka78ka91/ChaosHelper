@@ -11,8 +11,11 @@ import com.chaoshelper.hud.HudRenderer;
 import com.chaoshelper.keybind.KeybindManager;
 import com.chaoshelper.module.ModuleManager;
 import com.chaoshelper.module.modules.AutoEatModule;
+import com.chaoshelper.module.modules.AutoLogModule;
+import com.chaoshelper.module.modules.AutoTakeModule;
 import com.chaoshelper.module.modules.ChamsModule;
 import com.chaoshelper.module.modules.DropTrackerModule;
+import com.chaoshelper.module.modules.EndShipModule;
 import com.chaoshelper.module.modules.EspModule;
 import com.chaoshelper.module.modules.HudModule;
 import com.chaoshelper.module.modules.PlayerTrackerModule;
@@ -25,6 +28,7 @@ import com.chaoshelper.team.TeamManager;
 import com.chaoshelper.util.ErrorLog;
 import com.chaoshelper.util.NotificationManager;
 import com.chaoshelper.world.EndMarkerService;
+import com.chaoshelper.world.EndShipFinder;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -60,6 +64,7 @@ public final class ChaosHelperClient implements ClientModInitializer {
 	private DropTrackerModule dropTracker;
 	private TravelModule travelModule;
 	private EndMarkerService endMarkerService;
+	private EndShipFinder endShipFinder;
 	private RecordManager recordManager;
 	private TeamManager teamManager;
 	private TargetLink targetLink;
@@ -92,6 +97,7 @@ public final class ChaosHelperClient implements ClientModInitializer {
 		targetLink = new TargetLink(dataStore);
 		recordManager = new RecordManager(dataStore);
 		endMarkerService = new EndMarkerService();
+		endShipFinder = new EndShipFinder();
 		baritoneBridge = new BaritoneBridge();
 
 		moduleManager = new ModuleManager(this);
@@ -106,6 +112,9 @@ public final class ChaosHelperClient implements ClientModInitializer {
 		moduleManager.registerBuiltin(new RecordModule());
 		moduleManager.registerBuiltin(travelModule);
 		moduleManager.registerBuiltin(new AutoEatModule());
+		moduleManager.registerBuiltin(new AutoTakeModule());
+		moduleManager.registerBuiltin(new EndShipModule(endShipFinder));
+		moduleManager.registerBuiltin(new AutoLogModule());
 		moduleManager.initializeStates();
 
 		dynamicModuleLoader = new DynamicModuleLoader(this);
@@ -156,6 +165,7 @@ public final class ChaosHelperClient implements ClientModInitializer {
 		dropTracker.resetForWorldChange();
 		entityCache.clear();
 		endMarkerService.clear();
+		endShipFinder.resetForWorldChange();
 		// cancel() checks availability itself; calling it unconditionally also stops
 		// pathing when the bridge was already probed before the disconnect.
 		baritoneBridge.cancel();
@@ -218,6 +228,10 @@ public final class ChaosHelperClient implements ClientModInitializer {
 
 	public EndMarkerService endMarkerService() {
 		return endMarkerService;
+	}
+
+	public EndShipFinder endShipFinder() {
+		return endShipFinder;
 	}
 
 	public RecordManager recordManager() {

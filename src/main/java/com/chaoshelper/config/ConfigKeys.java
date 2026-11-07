@@ -67,11 +67,30 @@ public final class ConfigKeys {
 		list.add(new Entry("travel.glide", "boolean", "false", "滑翔模式：只调视角，不用烟花", () -> config.travel.glide));
 		list.add(new Entry("travel.cancelOnInput", "boolean", "false", "旧行为：玩家移动/攻击输入时取消旅行（默认关闭）", () -> config.travel.cancelOnInput));
 		list.add(new Entry("travel.cancelOnScreen", "boolean", "false", "旧行为：打开界面时取消旅行（默认关闭）", () -> config.travel.cancelOnScreen));
-		list.add(new Entry("travel.maxDistance", "double", "5000", "旅行目标最大距离（格）", () -> config.travel.maxDistance));
+		list.add(new Entry("travel.maxDistance", "double", "0", "旅行目标最大距离（格），0 = 不限", () -> config.travel.maxDistance));
 		list.add(new Entry("travel.gotoTeammatesOnly", "boolean", "false", "goto player 只接受本地队友", () -> config.travel.gotoTeammatesOnly));
 		list.add(new Entry("travel.minY", "double", "64", "鞘翅起飞安全高度下限", () -> config.travel.minY));
-		list.add(new Entry("travel.autoTakeElytra", "boolean", "true", "到达后自动取下展示框里的鞘翅", () -> config.travel.autoTakeElytra));
 		list.add(new Entry("travel.arriveRadius", "int", "3", "判定到达的距离", () -> config.travel.arriveRadius));
+
+		list.add(new Entry("autotake.range", "double", "4", "自动取鞘翅的展示框搜索范围（格）", () -> config.autotake.range));
+		list.add(new Entry("autotake.onlyWhenMissing", "boolean", "false", "已穿鞘翅时跳过取鞘翅（默认否，方便收集备用）", () -> config.autotake.onlyWhenMissing));
+		list.add(new Entry("autotake.cooldownTicks", "int", "20", "取鞘翅后的冷却（tick）", () -> config.autotake.cooldownTicks));
+
+		list.add(new Entry("endship.notify", "boolean", "true", "发现末地船时提示", () -> config.endship.notify));
+		list.add(new Entry("endship.markXaero", "boolean", "true", "发现末地船时写入 Xaero 路点", () -> config.endship.markXaero));
+		list.add(new Entry("endship.onlyEnd", "boolean", "true", "只在末地扫描（避免误判玩家放置的龙首）", () -> config.endship.onlyEnd));
+		list.add(new Entry("endship.scanRadiusChunks", "int", "8", "末地船扫描半径（区块）", () -> config.endship.scanRadiusChunks));
+		list.add(new Entry("endship.chunksPerScan", "int", "3", "每次扫描的区块数", () -> config.endship.chunksPerScan));
+		list.add(new Entry("endship.intervalTicks", "int", "2", "扫描间隔（tick）", () -> config.endship.intervalTicks));
+		list.add(new Entry("endship.dedupeRadius", "int", "48", "同一艘船的信号合并半径（格）", () -> config.endship.dedupeRadius));
+		list.add(new Entry("endship.chainNext", "boolean", "true", "取走鞘翅后自动飞往下一艘未搜的末地船", () -> config.endship.chainNext));
+		list.add(new Entry("endship.chainDelayTicks", "int", "60", "转场前等待（tick），留给拾取鞘翅", () -> config.endship.chainDelayTicks));
+		list.add(new Entry("endship.chainRange", "int", "0", "转场距离上限（格），0 = 不限", () -> config.endship.chainRange));
+
+		list.add(new Entry("autolog.healthThreshold", "double", "6", "血量（含伤害吸收）低于该值且无图腾时退服", () -> config.autolog.healthThreshold));
+		list.add(new Entry("autolog.requireNoTotem", "boolean", "true", "只在背包没有不死图腾时退服", () -> config.autolog.requireNoTotem));
+		list.add(new Entry("autolog.onlyMultiplayer", "boolean", "true", "只在多人服务器生效", () -> config.autolog.onlyMultiplayer));
+		list.add(new Entry("autolog.checkIntervalTicks", "int", "5", "血量检查间隔（tick）", () -> config.autolog.checkIntervalTicks));
 
 		// Elytra assists: both default to false, i.e. the player opts in explicitly.
 		list.add(new Entry("travel.glideClimb", "boolean", "false", "无动力爬升：周期性俯仰循环，不用烟花也能保持高度（默认关闭）", () -> config.travel.glideClimb));

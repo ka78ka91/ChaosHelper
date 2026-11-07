@@ -58,6 +58,10 @@ public final class DataStore {
 			if (loaded.records != null) {
 				data.records.addAll(loaded.records);
 			}
+			data.ships.clear();
+			if (loaded.ships != null) {
+				data.ships.addAll(loaded.ships);
+			}
 			data.targetName = loaded.targetName == null ? "" : loaded.targetName;
 			data.targetUuid = loaded.targetUuid == null ? "" : loaded.targetUuid;
 			normalize();
@@ -97,6 +101,11 @@ public final class DataStore {
 
 	public List<RecordEntry> records() {
 		return data.records;
+	}
+
+	/** Discovered End Ships, newest last. Persisted with everything else. */
+	public List<ShipPoint> ships() {
+		return data.ships;
 	}
 
 	public String targetName() {
@@ -172,12 +181,17 @@ public final class DataStore {
 		while (data.records.size() > 500) {
 			data.records.removeFirst();
 		}
+		data.ships.removeIf(ship -> ship == null);
+		while (data.ships.size() > 2000) {
+			data.ships.removeFirst();
+		}
 	}
 
 	private static final class Data {
 		Map<String, TeamEntry> team = new LinkedHashMap<>();
 		List<Waypoint> waypoints = new ArrayList<>();
 		List<RecordEntry> records = new ArrayList<>();
+		List<ShipPoint> ships = new ArrayList<>();
 		String targetName = "";
 		String targetUuid = "";
 	}

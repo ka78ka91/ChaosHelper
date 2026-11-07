@@ -3,6 +3,34 @@
 本项目的版本号写在 `gradle.properties` 的 `mod_version`，每次发布前手动递增，
 并同步 `fabric.mod.json`（构建时由 `${version}` 注入）与 `build/libs/chaoshelper-<version>.jar` 的文件名。
 
+## 1.0.2 — 2026-11-07
+
+### 新增
+
+- **末地船搜寻（`endship`，默认开启）**：飞行中扫描龙首、酿造台与鞘翅展示框，
+  按 48 格合并成一艘船，写入本地 `data.json` 与 Xaero 路点。
+  只读已加载区块，分帧扫描（默认 3 区块 / 2 tick），开销可忽略。
+- **取完鞘翅自动转场**：展示框变空（自动或手动取走）即标记该船已搜，
+  等待 `endship.chainDelayTicks` 后自动启用 `travel` 并以鞘翅模式飞向最近的未搜末地船。
+- **自动退服（`autolog`，默认关闭）**：血量（含伤害吸收）≤ 阈值且背包内没有不死图腾时断开连接；
+  只在多人模式生效，回标题后自动重新武装。
+- **HUD 新增「末地船」元素**：列出当前维度已发现的船，支持 `{dist} {dir} {looted} {x} {y} {z}`。
+- **新指令**：`/chaoshelper travel goto ship`、`/chaoshelper ship list|goto|clear`、
+  `/chaoshelper travel goto elytra`（走向最近的鞘翅展示框）。
+- 寻路距离限制 `travel.maxDistance` 默认改为 0（不限）。
+
+### 变更
+
+- 「自动取鞘翅」已从 `travel` 拆成独立模块 `autotake`，不再依赖旅行目标；
+  `autotake.onlyWhenMissing` 默认改为 `false`，穿着鞘翅时也会取走备用鞘翅。
+- Xaero 路点改为优先调用 Xaero 内存 API，失败才回退到文件写入。
+- 末地自动标记只保留潜影贝 →「末地城」；鞘翅/末地船交给 `endship`，不再重复写点。
+
+### 修复
+
+- 滑翔模式把甲飞造成的短暂停飞误判为落地而中止旅行（改为持续 15 tick 未滑翔才判定）。
+- 无烟花时 `elytra` 模式直接失败；现在自动退化为纯滑翔并提示原因。
+
 ## 1.0.1 — 2026-11-07
 
 ### 变更

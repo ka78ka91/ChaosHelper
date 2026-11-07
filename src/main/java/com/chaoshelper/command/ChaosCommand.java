@@ -4,6 +4,7 @@ import com.chaoshelper.ChaosHelperClient;
 import com.chaoshelper.config.ChaosConfig;
 import com.chaoshelper.config.ConfigKeys;
 import com.chaoshelper.data.RecordEntry;
+import com.chaoshelper.data.ShipPoint;
 import com.chaoshelper.data.TeamEntry;
 import com.chaoshelper.dynamic.DynamicModuleLoader;
 import com.chaoshelper.gui.ClickGuiScreen;
@@ -18,7 +19,11 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.command.CommandSource;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.decoration.ItemFrameEntity;
+import net.minecraft.item.Items;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
@@ -110,6 +115,12 @@ public final class ChaosCommand {
 										List.of("auto", "walk", "elytra", "glide"), builder))
 								.executes(context -> setTravelMode(context))))
 				.then(gotoTree(null)));
+
+		root.then(literal("ship")
+				.executes(context -> shipList(context.getSource()))
+				.then(literal("list").executes(context -> shipList(context.getSource())))
+				.then(literal("clear").executes(context -> shipClear(context.getSource())))
+				.then(literal("goto").executes(context -> gotoNearestShip(context, null))));
 
 		// Backwards-compatible aliases for the pre-merge command names.
 		root.then(literal("autopath")
@@ -227,6 +238,8 @@ public final class ChaosCommand {
 				.then(literal("waypoint")
 						.then(argument("name", StringArgumentType.greedyString())
 								.executes(context -> gotoWaypoint(context, forced))))
+				.then(literal("elytra").executes(context -> gotoElytra(context, forced)))
+				.then(literal("ship").executes(context -> gotoNearestShip(context, forced)))
 				.then(argument("x", IntegerArgumentType.integer())
 						.then(argument("y", IntegerArgumentType.integer())
 								.then(argument("z", IntegerArgumentType.integer())
@@ -251,6 +264,9 @@ public final class ChaosCommand {
 		feedback(source, "/chaoshelper <module> on|off|toggle");
 		feedback(source, "/chaoshelper travel goto <x> <y> <z> [auto|walk|elytra|glide]");
 		feedback(source, "/chaoshelper travel goto item|player|death|log|waypoint ...");
+		feedback(source, "/chaoshelper travel goto elytra  走向最近的鞘翅展示框");
+		feedback(source, "/chaoshelper travel goto ship    飞向最近的未搜末地船");
+		feedback(source, "/chaoshelper ship list|goto|clear  末地船列表 / 前往 / 清空");
 		feedback(source, "/chaoshelper travel stop | travel mode <mode>");
 		feedback(source, "/chaoshelper elytra [status | climb|swap on|off|toggle]  鞘翅辅助开关");
 		feedback(source, "/chaoshelper team add|remove|list|clear");
@@ -362,8 +378,94 @@ public final class ChaosCommand {
 		return startPath(TargetResolver.waypoint(name), context.getSource(), forced, null);
 	}
 
-	private static TravelModule.Mode parseMode(String explicit) {
-		if (explicit == null) {
+	/** Walks to the nearest item frame that holds an elytra (pair with autotake). */
+	private static int gotoElytra(CommandContext<FabricClientCommandSource> context, TravelModule.Mode forced) {
+		MinecraftClient client = context.getSource().getClient();
+		if (client.player == null || client.world == null) {
+			error(context.getSource(), "当前不在世界中");
+			return 0;
+		}
+		ItemFrameEntity nearest = null;
+		double best = Double.MAX_VALUE;
+		for (Entity entity : client.world.getEntities()) {
+			if (!(entity instanceof ItemFrameEntity frame)) {
+				continue;
+			}
+			if (!frame.getHeldItemStack().isOf(Items.ELYTRA)) {
+				continue;
+			}
+			double distance = frame.squaredDistanceTo(client.player);
+			if (distance < best) {
+				best = distance;
+				nearest = frame;
+			}
+		}
+		if (nearest == null) {
+			error(context.getSource(), "附近没有装鞘翅的展示框");
+			return 0;
+		}
+		BlockPos pos = nearest.getBlockPos();
+		feedback(context.getSource(), String.format(Locale.ROOT, "最近的鞘翅展示框: %d, %d, %d (%.0f 格)",
+				pos.getX(), pos.getY(), pos.getZ(), Math.sqrt(best)));
+		return startPath(new TargetResolver.Result(
+				new TargetResolver.Target("鞘翅展示框", pos.getX(), pos.getY(), pos.getZ(), false), null),
+				context.getSource(), forced, null);
+	}
+
+	/** Flies to the nearest End Ship that still has its elytra. */
+	private static int gotoNearestShip(CommandContext<FabricClientCommandSource> context, TravelModule.Mode forced) {
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		MinecraftClient client = context.getSource().getClient();
+		if (client.player == null || client.world == null) {
+			error(context.getSource(), "当前不在世界中");
+			return 0;
+		}
+		ShipPoint target = mod.endShipFinder().nextUnlooted(mod, null);
+		if (target == null) {
+			error(context.getSource(), "没有已发现的未搜末地船（开启 endship 模块并在末地飞行扫描）");
+			return 0;
+		}
+		double distance = Math.sqrt(target.distanceSquaredTo(client.player.getX(), client.player.getY(),
+				client.player.getZ()));
+		feedback(context.getSource(), String.format(Locale.ROOT, "末地船: %d, %d, %d (%.0f 格)",
+				target.x, target.y, target.z, distance));
+		return startPath(new TargetResolver.Result(
+				new TargetResolver.Target("末地船", target.x, target.y, target.z, false), null),
+				context.getSource(), forced == null ? TravelModule.Mode.ELYTRA : forced, null);
+	}
+
+	private static int shipList(FabricClientCommandSource source) {
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		MinecraftClient client = source.getClient();
+		if (client.player == null || client.world == null) {
+			error(source, "当前不在世界中");
+			return 0;
+		}
+		String dimension = client.world.getRegistryKey().getValue().toString();
+		List<ShipPoint> ships = mod.endShipFinder().shipsIn(dimension);
+		if (ships.isEmpty()) {
+			feedback(source, "当前维度没有已发现的末地船");
+			return 1;
+		}
+		ships.sort(java.util.Comparator.comparingDouble(ship ->
+				ship.distanceSquaredTo(client.player.getX(), client.player.getY(), client.player.getZ())));
+		feedback(source, "末地船 (" + ships.size() + "):");
+		for (ShipPoint ship : ships) {
+			double distance = Math.sqrt(ship.distanceSquaredTo(client.player.getX(), client.player.getY(),
+					client.player.getZ()));
+			feedback(source, String.format(Locale.ROOT, "  %s %d, %d, %d  %.0f 格",
+					ship.looted ? "[已搜]" : "[未搜]", ship.x, ship.y, ship.z, distance));
+		}
+		return 1;
+	}
+
+	private static int shipClear(FabricClientCommandSource source) {
+		ChaosHelperClient.get().endShipFinder().clearFound();
+		feedback(source, "已清空末地船列表");
+		return 1;
+	}
+
+	private static TravelModule.Mode parseMode(String explicit) {		if (explicit == null) {
 			return TravelModule.Mode.AUTO;
 		}
 		return switch (explicit.toLowerCase(Locale.ROOT)) {

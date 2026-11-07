@@ -8,7 +8,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 > 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.1**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.2**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -52,7 +52,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `/chaoshelper toggle <模块>` | 切换模块 |
 | `/chaoshelper <模块> on\|off\|toggle` | 同上，模块名在前 |
 
-模块 id：`hud`、`esp`、`chams`、`player-tracker`、`drop-tracker`、`record`、`travel`、`autoeat`。
+模块 id：`hud`、`esp`、`chams`、`player-tracker`、`drop-tracker`、`record`、`travel`、`autoeat`、`autotake`。
 例如 `/chaoshelper esp on` 或 `/chaoshelper travel toggle`。
 
 ### 旅行
@@ -68,6 +68,11 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `/chaoshelper travel goto death` | 前往最后一次死亡点 |
 | `/chaoshelper travel goto log <玩家>` | 前往某玩家最后可见位置 |
 | `/chaoshelper travel goto waypoint <名称>` | 前往小地图路点 |
+| `/chaoshelper travel goto elytra` | 走向最近的、装着鞘翅的展示框 |
+| `/chaoshelper travel goto ship` | 飞向最近的未搜末地船 |
+| `/chaoshelper ship list` | 列出当前维度已发现的末地船（含已搜/未搜与距离） |
+| `/chaoshelper ship goto` | 同 `travel goto ship` |
+| `/chaoshelper ship clear` | 清空末地船列表 |
 | `/chaoshelper travel stop` | 停止当前旅行（等同按 `V`） |
 | `/chaoshelper travel mode <auto\|walk\|elytra\|glide>` | 切换默认旅行模式 |
 | `/chaoshelper autopath ...` | 旧名别名，强制步行 |
@@ -135,6 +140,9 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `record` | 本地记录 | 死亡点、离开点、聊天日志点 |
 | `travel` | 旅行 | 步行 / 鞘翅直飞 / 滑翔三合一；普通输入不打断，按 `V` 停止、`P` panic |
 | `autoeat` | 自动进食 | 阈值触发，尊重冷却与进食动画，玩家输入即暂停 |
+| `autotake` | 自动取鞘翅 | 扫描附近展示框，取出里面鞘翅；可设范围与冷却，已有鞘翅时跳过 |
+| `endship` | 末地船搜寻 | 飞行中扫描龙首/酿造台/鞘翅展示框，发现即标记（Xaero 路点 + 本地列表）；取完鞘翅可自动飞下一艘 |
+| `autolog` | 自动退服 | 血量低于阈值且背包（含副手）没有不死图腾时断开连接，只在多人模式生效 |
 
 HUD 默认布局：左上玩家、右上坐标/模块/记录点、左下掉落物、右下自身与目标；
 所有元素都能在编辑器里增删、拖动、改类型/模板/样式，不再有固定面板。
@@ -157,7 +165,7 @@ HUD 编辑器：
 - 画布就是真实 HUD，左键直接拖动任意元素；左侧列表选中元素，点色块切换显示。
 - 「新增」创建自定义文本元素，「复制」「删除」管理，「属性」进入单元素编辑。
 - 单元素属性三页：
-  - **基础**：显示、标题、类型（文本/坐标/自身/目标/玩家/掉落/记录/模块/通知/Baritone/性能）、
+  - **基础**：显示、标题、类型（文本/坐标/自身/目标/玩家/掉落/记录/末地船/模块/通知/Baritone/性能）、
     锚点、对齐、排序、空列表隐藏、位置重置。
   - **样式**：缩放、行高、内边距、间距、背景、边框、文字阴影、文字颜色、强调色、重置样式。
   - **数据**：逐行模板、关键词过滤、行数上限、恢复默认模板。
@@ -174,7 +182,8 @@ HUD 编辑器：
 - 玩家：`{name} {dist} {hp} {maxhp} {armor} {flags} {equip} {team} {visible} {first} {lastseen} {index}`；
 - 掉落：`{item} {count} {dist} {age} {visible}`；
 - 记录：`{type} {message} {x} {y} {z} {time} {dist}`；
-- 模块：`{id} {name} {status}`；通知：`{message} {error}`。
+- 模块：`{id} {name} {status}`；通知：`{message} {error}`；
+- 末地船：`{name} {dist} {dir} {looted} {x} {y} {z} {index}`（`{dir}` 是相对玩家的方位：东/东南/南…）。
 
 未知变量会原样保留，便于发现拼写错误；窗口关闭或编辑器改动时自动保存。
 
@@ -218,6 +227,44 @@ HUD 编辑器：
 - 收益很低：**耐久 III + 经验修补**通常已经解决问题，零风险、零操作，建议优先使用。
 - 两个功能同时开启会互相干扰：甲飞每秒中断一次滑翔，会不断打断爬升的俯仰循环，建议只开一个。
 
+## 末地船搜寻（`endship`，默认开启）
+
+在末地飞行时找船，**不能用潜影贝**：潜影贝只在末地城的地面生成，末地船上没有，
+飞到高空时也早已超出实体同步距离。所以检测只看「只有末地船才有的东西」：
+
+- 船头的**龙首**（`minecraft:dragon_head`）；
+- 宝藏室里的**酿造台**（`minecraft:brewing_stand`）；
+- 装着**鞘翅的展示框**（实体，兼容玩家手动放置的情况）。
+
+实现方式：
+
+- 只读已加载区块：半径 `scanRadiusChunks`（默认 8 区块 = 128 格），每次扫描 `chunksPerScan`（默认 3）列，
+  每 `intervalTicks`（默认 2）tick 扫一次；同一区块 `rescanTicks` 内不重复读。
+- 先用 `ChunkSection.hasAny(...)` 查调色板，只有命中才遍历 16³，开销很低。
+- 命中后按 `dedupeRadius`（默认 48 格）合并成「一艘船」，位置从船头自动升级到鞘翅展示框，
+  写入 `data.json` 并（可选）写一个名为「末地船」的 Xaero 路点，同时在 HUD 提示。
+- 展示框变空（无论自动取还是你手动取）即视为「已搜」，不会重复转场。
+
+自动转场：
+
+- `endship.chainNext`（默认开）为真时，取完一艘的鞘翅后等 `chainDelayTicks`（默认 60 tick，留给拾取），
+  自动启用 `travel` 并以**鞘翅模式**飞向最近的未搜末地船；没有烟花会退化为纯滑翔。
+- 用 `/chaoshelper travel goto ship` 或 `/chaoshelper ship list` 手动查看/前往。
+- 注意：鞘翅直飞只按 X/Z 导航，Baritone 会在船附近的「安全落点」降落，之后通常还要自己飞进船内；
+  取到鞘翅后链式转场才会继续。
+- HUD 加一个「末地船」元素即可随时看到方位（`{dir}`）与 `{looted}` 状态，便于在高空转向。
+
+## 自动退服（`autolog`，默认关闭）
+
+血量（含伤害吸收）≤ `healthThreshold`（默认 6 = 3 颗心）**且**背包里（主背包、快捷栏、护甲、副手）
+一个不死图腾都没有时，直接 `MinecraftClient.disconnect`，等同于自己点「断开连接」——
+
+- 只在多人服务器生效（`onlyMultiplayer`，默认 `true`），单人不会触发；
+- 每 `checkIntervalTicks`（默认 5 tick）检查一次，死亡后不再触发，回到标题界面后自动重新武装；
+- 判定使用 `player.getHealth() + getAbsorptionAmount()`，不会误判「有图腾但还没触发」的情况；
+- 想更保守就把阈值调高（例如 10），想更激进就调低（例如 4）。**退服不等于无敌**：
+  从掉血到断开之间仍有 1~2 tick 的窗口，摔落/虚空/瞬间爆发伤害仍可能先判定死亡。
+
 ## Xaero 小地图集成（Xaero's Minimap / XaeroPlus）
 
 已按本机 Xaero 26.6.0 的真实落盘格式实现，未凭猜测：
@@ -231,11 +278,14 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 
 - 维度目录：`dim%0` 主世界、`dim%-1` 下界、`dim%1` 末地、`dim%<ns>$<path>` 自定义维度。
 - 读取：合并 `waypoints.txt` 与所有 `mw$*.txt`，供 `travel goto waypoint <名称>` 导航。
-- 写入：优先新建 `mw$chaoshelper_1.txt`（独立集合，即"新目录"）；该世界没有 `mw$` 文件时追加到
-  `waypoints.txt`。首次写入前生成 `.chaoshelper.bak` 备份，永不改写已有行。
-- 末地自动标记：每 40 tick 扫描潜影贝（末地城）与展示框中的鞘翅，按 96 格网格去重后写入。
-- **限制**：Xaero 在运行期把路点缓存在内存里，外部写入通常要重进世界或重启才会显示；
-  若 Xaero 随后保存，可能覆盖新文件。建议先退出游戏再执行写入类操作并做好备份。
+- 写入：**优先调用 Xaero 的内存 API**（`XaeroMinimapSession → MinimapSession → MinimapWorld →
+  WaypointSet.add`），由 Xaero 自己持久化，标记立即生效，运行期也不会被覆盖。
+- 回退：API 不可用（Xaero 版本变化 / 尚未进入世界）时退回文件写入 —— 新建 `mw$chaoshelper_1.txt`
+  （独立集合），没有 `mw$` 文件时追加到 `waypoints.txt`，首次写入前生成 `.chaoshelper.bak`。
+- 末地自动标记：每 40 tick 扫描潜影贝标记「末地城」；末地船由 `endship` 模块单独扫描
+  （龙首/酿造台/鞘翅展示框），两者互不重复。
+- **限制**：API 是反射调用的 Xaero 内部接口，Xaero 更新后可能失效；失效时 `/chaoshelper xaero status`
+  会显示「文件」模式。文件模式下，Xaero 运行期缓存路点，通常要重进世界或重启才会显示，建议先退出游戏再写。
 
 ## 配置文件
 
@@ -288,10 +338,26 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `travel.glide` | false | 滑翔模式：只调视角，不消耗烟花 |
 | `travel.cancelOnInput` | false | 是否恢复旧行为：玩家移动/攻击输入时取消旅行 |
 | `travel.cancelOnScreen` | false | 是否恢复旧行为：打开界面时取消旅行 |
-| `travel.maxDistance` | 5000 | 目标距离上限 |
+| `travel.maxDistance` | 0 | 目标距离上限，0 = 不限 |
 | `travel.minY` | 64 | 鞘翅起飞安全高度下限 |
-| `travel.autoTakeElytra` | true | 到达后自动取下展示框里的鞘翅 |
 | `travel.arriveRadius` | 3 | 到达判定距离 |
+| `autotake.range` | 4 | 自动取鞘翅的展示框搜索范围（格） |
+| `autotake.onlyWhenMissing` | false | 已穿鞘翅时跳过（默认否，方便收集备用鞘翅） |
+| `autotake.cooldownTicks` | 20 | 取鞘翅后的冷却（tick） |
+| `endship.notify` | true | 发现末地船时提示 |
+| `endship.markXaero` | true | 发现时写入 Xaero 路点 |
+| `endship.onlyEnd` | true | 只在末地扫描，避免误判玩家放置的龙首 |
+| `endship.scanRadiusChunks` | 8 | 扫描半径（区块） |
+| `endship.chunksPerScan` | 3 | 每次扫描的区块数 |
+| `endship.intervalTicks` | 2 | 扫描间隔（tick） |
+| `endship.dedupeRadius` | 48 | 同一艘船的信号合并半径（格） |
+| `endship.chainNext` | true | 取走鞘翅后自动飞往下一艘未搜的船 |
+| `endship.chainDelayTicks` | 60 | 转场前等待，留给拾取鞘翅 |
+| `endship.chainRange` | 0 | 转场距离上限，0 = 不限 |
+| `autolog.healthThreshold` | 6 | 血量（含伤害吸收）低于该值且无图腾时退服 |
+| `autolog.requireNoTotem` | true | 只在背包没有不死图腾时退服 |
+| `autolog.onlyMultiplayer` | true | 只在多人服务器生效 |
+| `autolog.checkIntervalTicks` | 5 | 血量检查间隔（tick） |
 | `travel.glideClimb` | false | 无动力爬升：周期性俯仰循环，不用烟花保持高度 |
 | `travel.glideClimbClearance` | 80 | 爬升要求的最低离地净空（格） |
 | `travel.glideClimbDiveBlocks` | 70 | 每个循环允许下潜的格数 |

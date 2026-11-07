@@ -7,6 +7,7 @@ import com.chaoshelper.api.PlayerData;
 import com.chaoshelper.config.ChaosConfig;
 import com.chaoshelper.config.HudElement;
 import com.chaoshelper.data.RecordEntry;
+import com.chaoshelper.data.ShipPoint;
 import com.chaoshelper.team.TeamManager;
 import com.chaoshelper.util.DirectionUtil;
 import com.chaoshelper.util.ErrorLog;
@@ -246,6 +247,7 @@ public final class HudRenderer implements HudRenderCallback {
 		List<Line> lines = switch (element.type) {
 			case "players" -> playerLines(element, global);
 			case "drops" -> dropLines(element, global);
+			case "ships" -> shipLines(element, global);
 			case "records" -> recordLines(element, client, global);
 			case "modules" -> moduleLines(element, global);
 			case "notices" -> noticeLines(element, global);
@@ -334,6 +336,50 @@ public final class HudRenderer implements HudRenderCallback {
 			lines.add(new Line(HudVariables.apply(element.effectiveTemplate(), row), element.color));
 		}
 		return lines;
+	}
+
+	/** Discovered End Ships in the current dimension, nearest first. */
+	private List<Line> shipLines(HudElement element, Map<String, String> global) {
+		MinecraftClient client = mod.client();
+		List<Line> lines = new ArrayList<>();
+		if (client.player == null || client.world == null) {
+			return lines;
+		}
+		String dimension = client.world.getRegistryKey().getValue().toString();
+		List<ShipPoint> ships = mod.endShipFinder().shipsIn(dimension);
+		ships.removeIf(ship -> !matches(element.filter, "末地船"));
+		ships.sort(Comparator.comparingDouble(ship ->
+				ship.distanceSquaredTo(client.player.getX(), client.player.getY(), client.player.getZ())));
+		int index = 0;
+		for (ShipPoint ship : ships) {
+			if (index >= element.maxEntries) {
+				break;
+			}
+			double dx = ship.x + 0.5 - client.player.getX();
+			double dz = ship.z + 0.5 - client.player.getZ();
+			double distance = Math.sqrt(dx * dx + dz * dz);
+			Map<String, String> row = new HashMap<>(global);
+			row.put("index", Integer.toString(++index));
+			row.put("name", "末地船");
+			row.put("dist", Math.round(distance) + "m");
+			row.put("dist_raw", Double.toString(distance));
+			row.put("dir", bearing(dx, dz));
+			row.put("looted", ship.looted ? "已搜" : "未搜");
+			row.put("status", ship.looted ? "已搜" : "未搜");
+			row.put("x", Integer.toString(ship.x));
+			row.put("y", Integer.toString(ship.y));
+			row.put("z", Integer.toString(ship.z));
+			lines.add(new Line(HudVariables.apply(element.effectiveTemplate(), row), element.color));
+		}
+		return lines;
+	}
+
+	/** Compass bearing from a delta, so the HUD line tells you where to look. */
+	private static String bearing(double dx, double dz) {
+		double degrees = Math.toDegrees(Math.atan2(dz, dx));
+		String[] names = { "东", "东南", "南", "西南", "西", "西北", "北", "东北" };
+		int index = (int) Math.round(((degrees + 360.0) % 360.0) / 45.0) % 8;
+		return names[index];
 	}
 
 	private List<Line> recordLines(HudElement element, MinecraftClient client, Map<String, String> global) {

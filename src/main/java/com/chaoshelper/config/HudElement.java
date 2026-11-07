@@ -64,7 +64,7 @@ public final class HudElement {
 		if (id == null || id.isBlank()) {
 			id = "el-" + UUID.randomUUID().toString().substring(0, 8);
 		}
-		if (type == null || !type.matches("text|coords|self|target|players|drops|records|modules|notices|baritone|perf")) {
+		if (type == null || !type.matches("text|coords|self|target|players|drops|records|modules|notices|baritone|perf|ships")) {
 			type = "text";
 		}
 		if (anchor == null || !anchor.matches("tl|tr|bl|br")) {
@@ -134,6 +134,7 @@ public final class HudElement {
 			case "notices" -> "通知";
 			case "baritone" -> "Baritone";
 			case "perf" -> "性能";
+			case "ships" -> "末地船";
 			default -> type;
 		};
 	}
@@ -155,6 +156,7 @@ public final class HudElement {
 			case "notices" -> "{message}";
 			case "baritone" -> "{baritone}";
 			case "perf" -> "FPS {fps}  内存 {mem_used}/{mem_max} MB\n游戏时间 {time}  现实 {real_time}";
+			case "ships" -> "{name} {dist} {dir} {looted}";
 			default -> "XYZ {x} {y} {z}";
 		};
 	}

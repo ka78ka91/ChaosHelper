@@ -26,7 +26,7 @@ public final class HudElementScreen extends Screen {
 	private static final int[] GAPS = { 0, 2, 4, 6, 8, 10 };
 	private static final int[] MAX_ENTRIES = { 3, 5, 8, 10, 15, 20, 30 };
 	private static final String[] TYPES = { "text", "coords", "self", "target", "players", "drops", "records",
-			"modules", "notices", "baritone", "perf" };
+			"modules", "notices", "baritone", "perf", "ships" };
 	private static final String[] ANCHORS = { "tl", "tr", "bl", "br" };
 	private static final String[] ALIGNS = { "left", "center", "right" };
 	private static final String[] SORTS = { "distance", "name", "health", "age" };

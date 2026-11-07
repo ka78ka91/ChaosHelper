@@ -8,11 +8,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.EquipmentSlot;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.decoration.ItemFrameEntity;
 import net.minecraft.item.Items;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
 
 import java.util.Locale;
 
@@ -45,7 +42,7 @@ public final class TravelModule extends Module {
 	private String targetLabel = "";
 	private int ticksSinceStart;
 	private int ticksSinceArrive;
-	private boolean tookElytra;
+	private boolean glideStarted;
 
 	/** Both assists are opt-in: they only run when the matching config flag is on. */
 	private final GlideClimbAssist climb = new GlideClimbAssist();
@@ -81,14 +78,17 @@ public final class TravelModule extends Module {
 			return "当前不在世界中";
 		}
 		double distance = Math.sqrt(player.squaredDistanceTo(x + 0.5, y + 0.5, z + 0.5));
-		if (distance > mod.config().travel.maxDistance) {
+		if (mod.config().travel.maxDistance > 0 && distance > mod.config().travel.maxDistance) {
 			return String.format(Locale.ROOT, "目标距离 %.0f 超过上限 %.0f", distance,
 					mod.config().travel.maxDistance);
 		}
 		Mode mode = resolveMode(requested, player, distance);
 		if (mode == Mode.GLIDE) {
+			if (!player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA)) {
+				return "滑翔模式需要穿着鞘翅";
+			}
 			if (!player.isGliding()) {
-				return "滑翔模式需要先处于滑翔状态（或改用 elytra 直飞）";
+				mod.notifications().info("滑翔模式已设定：跳下并按空格展开鞘翅后自动接管");
 			}
 		}
 		if (mode == Mode.ELYTRA) {
@@ -102,7 +102,15 @@ public final class TravelModule extends Module {
 				return String.format(Locale.ROOT, "下界 Y=%.0f 低于安全下限 %.0f", player.getY(),
 						mod.config().travel.minY);
 			}
-			if (!player.isGliding()) {
+			if (!hasFireworks(player)) {
+				// Baritone's elytra process needs fireworks and lands immediately
+				// without them. Use the local pure-glide steering for the same goal.
+				if (!player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA)) {
+					return "背包没有烟花，也没有穿鞘翅：无法飞行";
+				}
+				mode = Mode.GLIDE;
+				mod.notifications().info("背包没有烟花：已改用纯滑翔（展开鞘翅后自动接管）");
+			} else if (!player.isGliding()) {
 				mod.notifications().info("鞘翅飞行已设定：跳下并展开鞘翅后会自动接管");
 			}
 		}
@@ -126,7 +134,7 @@ public final class TravelModule extends Module {
 		hasTarget = true;
 		ticksSinceStart = 0;
 		ticksSinceArrive = 0;
-		tookElytra = false;
+		glideStarted = false;
 		mod.notifications().info("开始旅行(" + modeLabel(mode) + "): " + targetText()
 				+ (targetLabel.isBlank() ? "" : " " + targetLabel));
 		return null;
@@ -159,6 +167,7 @@ public final class TravelModule extends Module {
 		boolean wasActive = hasTarget;
 		hasTarget = false;
 		ticksSinceArrive = 0;
+		glideStarted = false;
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		if (mod != null) {
 			mod.baritoneBridge().cancel();
@@ -263,8 +272,17 @@ public final class TravelModule extends Module {
 		int arrive = mod.config().travel.arriveRadius;
 
 		if (activeMode == Mode.GLIDE) {
-			// A swap briefly stops the glide; only a sustained stop means landing.
-			if (ticksNotGliding >= 15) {
+			if (gliding) {
+				glideStarted = true;
+			} else if (!glideStarted) {
+				// Waiting for the player to jump and deploy the elytra.
+				if (ticksSinceStart > 600) {
+					hasTarget = false;
+					mod.notifications().info("滑翔未开始（30 秒内没有展开鞘翅），旅行已停止");
+				}
+				return;
+			} else if (ticksNotGliding >= 15) {
+				// A swap briefly stops the glide; only a sustained stop means landing.
 				hasTarget = false;
 				mod.notifications().info("滑翔结束（已落地），旅行已停止");
 				return;
@@ -273,12 +291,12 @@ public final class TravelModule extends Module {
 				steerGlide(player, dx, dy, dz, horizontal, climbPitch);
 			}
 			if (horizontal <= arrive + 2 && Math.abs(dy) <= 8) {
-				arrive(player);
+				arrive();
 			}
 			return;
 		}
 		if (horizontal <= arrive && Math.abs(dy) <= Math.max(3, arrive)) {
-			arrive(player);
+			arrive();
 			return;
 		}
 		if (activeMode == Mode.WALK) {
@@ -352,9 +370,18 @@ public final class TravelModule extends Module {
 		}
 	}
 
+	/** Baritone's elytra process needs fireworks; without them it lands at once. */
+	private static boolean hasFireworks(ClientPlayerEntity player) {
+		for (int slot = 0; slot < player.getInventory().size(); slot++) {
+			if (player.getInventory().getStack(slot).isOf(Items.FIREWORK_ROCKET)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/** Blocks of free air directly below the player; the scan is capped on purpose. */
-	private static int clearanceBelow(ClientWorld world, ClientPlayerEntity player, int cap) {
-		int x = player.getBlockX();
+	private static int clearanceBelow(ClientWorld world, ClientPlayerEntity player, int cap) {		int x = player.getBlockX();
 		int z = player.getBlockZ();
 		int startY = player.getBlockY() - 1;
 		int bottom = Math.max(world.getBottomY(), startY - cap);
@@ -366,36 +393,12 @@ public final class TravelModule extends Module {
 		return cap;
 	}
 
-	private void arrive(ClientPlayerEntity player) {
+	private void arrive() {
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		ticksSinceArrive++;
 		if (ticksSinceArrive == 1) {
 			mod.notifications().info("已到达 " + (targetLabel.isBlank() ? targetText() : targetLabel));
 			stop(false);
-			if (mod.config().travel.autoTakeElytra) {
-				takeElytra(player);
-			}
-		}
-	}
-
-	/** Breaks a nearby elytra item frame once; the drop is picked up normally. */
-	private void takeElytra(ClientPlayerEntity player) {
-		if (tookElytra) {
-			return;
-		}
-		MinecraftClient client = ChaosHelperClient.get().client();
-		if (client.world == null || client.interactionManager == null) {
-			return;
-		}
-		Vec3d eye = player.getEyePos();
-		for (Entity entity : client.world.getEntities()) {
-			if (entity instanceof ItemFrameEntity frame && frame.getHeldItemStack().isOf(Items.ELYTRA)
-					&& frame.squaredDistanceTo(eye) <= 16.0) {
-				client.interactionManager.attackEntity(player, frame);
-				tookElytra = true;
-				ChaosHelperClient.get().notifications().info("已取下物品展示框中的鞘翅");
-				return;
-			}
 		}
 	}
 
