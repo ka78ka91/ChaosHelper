@@ -8,7 +8,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 > 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.2**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.3**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -226,6 +226,9 @@ HUD 编辑器：
   连续失败时功能会自行放弃。
 - 收益很低：**耐久 III + 经验修补**通常已经解决问题，零风险、零操作，建议优先使用。
 - 两个功能同时开启会互相干扰：甲飞每秒中断一次滑翔，会不断打断爬升的俯仰循环，建议只开一个。
+- **自动飞行期间默认不切甲**：`travel` 旅行目标进行中、或 Baritone 鞘翅航线正在跑时，甲飞不会开始新的切换循环。
+  原因是切走胸甲必然让 `isGliding()` 掉几 tick，Baritone 会把它当成「飞行结束」而收线。
+  需要边飞边省耐久可打开 `travel.elytraSwapDuringTravel`，但**会中断自动飞行**，自行权衡。
 
 ## 末地船搜寻（`endship`，默认开启）
 
@@ -366,6 +369,7 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `travel.elytraSwapDurabilityLimit` | 0 | 0=总是启用；>0 表示剩余耐久低于该值才启用 |
 | `travel.elytraSwapMaxSwaps` | 0 | 单轮最多切换次数，0=不限 |
 | `travel.elytraSwapClearance` | 24 | 甲飞要求的最低离地净空（格） |
+| `travel.elytraSwapDuringTravel` | false | 自动飞行期间也切甲；会让旅行/Baritone 航线中断 |
 | `xaero.enabled` | true | 启用 Xaero 路点集成 |
 | `xaero.autoMarkEnd` | true | 末地自动标记末地城/鞘翅 |
 | `xaero.setName` | chaoshelper | 写入 Xaero 的集合名（新目录） |

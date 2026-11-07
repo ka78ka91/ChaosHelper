@@ -3,6 +3,17 @@
 本项目的版本号写在 `gradle.properties` 的 `mod_version`，每次发布前手动递增，
 并同步 `fabric.mod.json`（构建时由 `${version}` 注入）与 `build/libs/chaoshelper-<version>.jar` 的文件名。
 
+## 1.0.3 — 2026-11-07
+
+### 修复
+
+- **甲飞会暂停自动飞行**：甲飞切走胸甲时 `isGliding()` 必然掉几 tick，Baritone 的鞘翅流程会把它当成
+  「飞行结束」并收线，于是旅行/航线停在半路。现在只要 `travel` 有目标、或 Baritone 鞘翅航线正在跑，
+  甲飞就不再开始新的切换循环；已在进行的循环会正常收尾，保证鞘翅装回胸甲槽。
+- 新增 `travel.elytraSwapDuringTravel`（默认 `false`）：需要边飞边省耐久时可以打开，
+  但会中断自动飞行，鞘翅设置页和状态栏都有明确提示。
+- 甲飞状态栏显示「自动飞行中暂停」，不再让人误以为功能失效。
+
 ## 1.0.2 — 2026-11-07
 
 ### 新增

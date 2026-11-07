@@ -452,6 +452,12 @@ public final class ChaosConfig {
 		public int elytraSwapMaxSwaps = 0;
 		/** Minimum clearance above the ground required before swapping. */
 		public int elytraSwapClearance = 24;
+		/**
+		 * 1.0.3: a swap necessarily drops the glide flag for a couple of ticks,
+		 * and Baritone's elytra process reads that as "flight over". Off by
+		 * default so 甲飞 can never pause an active auto-flight.
+		 */
+		public boolean elytraSwapDuringTravel = false;
 
 		void normalize() {
 			if (mode == null || !mode.matches("auto|walk|elytra")) {

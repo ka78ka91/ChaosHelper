@@ -142,6 +142,8 @@ public final class ModuleSettings {
 				: "全部关闭", () -> mod.client().setScreen(new ElytraOptionsScreen(null))));
 		list.add(Setting.bool("无动力爬升", () -> travel.glideClimb, value -> travel.glideClimb = value));
 		list.add(Setting.bool("甲飞(切甲省耐久)", () -> travel.elytraSwap, value -> travel.elytraSwap = value));
+		list.add(Setting.bool("自动飞行时也切甲", () -> travel.elytraSwapDuringTravel,
+				value -> travel.elytraSwapDuringTravel = value));
 	}
 
 	private static void autoEat(List<Setting> list, ChaosConfig config) {

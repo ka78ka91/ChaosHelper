@@ -101,6 +101,7 @@ public final class ConfigKeys {
 		list.add(new Entry("travel.elytraSwapDurabilityLimit", "int", "0", "甲飞：0=总是启用，>0 表示仅当剩余耐久低于该值时启用", () -> config.travel.elytraSwapDurabilityLimit));
 		list.add(new Entry("travel.elytraSwapMaxSwaps", "int", "0", "甲飞：单次运行最多切换次数，0=不限，超限自动放弃", () -> config.travel.elytraSwapMaxSwaps));
 		list.add(new Entry("travel.elytraSwapClearance", "int", "24", "甲飞要求的最低离地净空（格）", () -> config.travel.elytraSwapClearance));
+		list.add(new Entry("travel.elytraSwapDuringTravel", "boolean", "false", "自动飞行（旅行/Baritone）期间也执行甲飞；会让自动飞行中断", () -> config.travel.elytraSwapDuringTravel));
 
 		list.add(new Entry("xaero.enabled", "boolean", "true", "启用 Xaero 路点集成", () -> config.xaero.enabled));
 		list.add(new Entry("xaero.autoMarkEnd", "boolean", "true", "末地自动标记末地城/鞘翅", () -> config.xaero.autoMarkEnd));

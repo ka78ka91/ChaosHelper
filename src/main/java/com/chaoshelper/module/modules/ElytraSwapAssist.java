@@ -158,6 +158,15 @@ public final class ElytraSwapAssist {
 
 		switch (phase) {
 			case IDLE -> {
+				// A swap drops the glide flag for a few ticks. Baritone's elytra
+				// process treats that as the end of the flight, so starting a new
+				// cycle while auto-flight is running would silently stop it.
+				ChaosHelperClient mod = ChaosHelperClient.get();
+				boolean autoFlight = mod != null
+						&& (mod.travel().hasTarget() || mod.baritoneBridge().isElytraActive());
+				if (autoFlight && !config.elytraSwapDuringTravel) {
+					return;
+				}
 				String reason = blockReason(client, player, clearance, config);
 				if (reason != null) {
 					if (!warnedBlock) {

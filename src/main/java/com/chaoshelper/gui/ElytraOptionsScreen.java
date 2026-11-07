@@ -69,6 +69,13 @@ public final class ElytraOptionsScreen extends Screen {
 			refresh(mod);
 		}).dimensions(right, y, 152, 20).build());
 
+		y += 22;
+		addDrawableChild(ButtonWidget.builder(
+				Text.literal("自动飞行时也切甲: " + (config.elytraSwapDuringTravel ? "§a[开]" : "§7[关]")), button -> {
+					config.elytraSwapDuringTravel = !config.elytraSwapDuringTravel;
+					refresh(mod);
+				}).dimensions(left, y, 152, 20).build());
+
 		addDrawableChild(ButtonWidget.builder(Text.literal("返回"), button -> close())
 				.dimensions(width / 2 - 50, height - 24, 100, 20).build());
 	}
@@ -149,7 +156,9 @@ public final class ElytraOptionsScreen extends Screen {
 		if (travel.glideClimb && travel.elytraSwap) {
 			line = line + " (注意: 两者会互相干扰)";
 		}
-		context.drawTextWithShadow(textRenderer, line, left, 166, 0xFF88FF88);
+		context.drawTextWithShadow(textRenderer,
+				"自动飞行（旅行/Baritone）期间默认不切甲，避免把航线打断", left, 188, 0xFFAAAAAA);
+		context.drawTextWithShadow(textRenderer, line, left, 202, 0xFF88FF88);
 		super.render(context, mouseX, mouseY, delta);
 	}
 

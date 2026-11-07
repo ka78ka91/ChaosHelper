@@ -340,7 +340,12 @@ public final class TravelModule extends Module {
 	}
 
 	public String assistStatus() {
-		return climb.status() + " / " + swap.status() + " (本轮切换 " + swap.swapCount() + " 次)";
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		boolean paused = mod != null
+				&& (hasTarget || mod.baritoneBridge().isElytraActive())
+				&& !mod.config().travel.elytraSwapDuringTravel;
+		return climb.status() + " / " + swap.status() + " (本轮切换 " + swap.swapCount() + " 次)"
+				+ (paused ? " [自动飞行中暂停]" : "");
 	}
 
 	private void syncOptionEdges(ChaosConfig.TravelConfig travel) {
