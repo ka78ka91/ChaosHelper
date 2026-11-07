@@ -333,7 +333,7 @@ public final class ChaosConfig {
 
 	/** Picks elytra out of nearby item frames; independent from travel goals. */
 	public static final class AutoTakeConfig {
-		public double range = 4.0;
+		public double range = 3.0;
 		/**
 		 * 1.0.2: default false, so a spare elytra is still taken while one is
 		 * equipped - that is the whole point of looting ships. Set true to keep

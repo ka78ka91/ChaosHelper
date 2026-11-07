@@ -341,7 +341,7 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `travel.maxDistance` | 0 | 目标距离上限，0 = 不限 |
 | `travel.minY` | 64 | 鞘翅起飞安全高度下限 |
 | `travel.arriveRadius` | 3 | 到达判定距离 |
-| `autotake.range` | 4 | 自动取鞘翅的展示框搜索范围（格） |
+| `autotake.range` | 3 | 自动取鞘翅的展示框搜索范围（格） |
 | `autotake.onlyWhenMissing` | false | 已穿鞘翅时跳过（默认否，方便收集备用鞘翅） |
 | `autotake.cooldownTicks` | 20 | 取鞘翅后的冷却（tick） |
 | `endship.notify` | true | 发现末地船时提示 |

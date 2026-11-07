@@ -72,7 +72,7 @@ public final class ConfigKeys {
 		list.add(new Entry("travel.minY", "double", "64", "鞘翅起飞安全高度下限", () -> config.travel.minY));
 		list.add(new Entry("travel.arriveRadius", "int", "3", "判定到达的距离", () -> config.travel.arriveRadius));
 
-		list.add(new Entry("autotake.range", "double", "4", "自动取鞘翅的展示框搜索范围（格）", () -> config.autotake.range));
+		list.add(new Entry("autotake.range", "double", "3", "自动取鞘翅的展示框搜索范围（格）", () -> config.autotake.range));
 		list.add(new Entry("autotake.onlyWhenMissing", "boolean", "false", "已穿鞘翅时跳过取鞘翅（默认否，方便收集备用）", () -> config.autotake.onlyWhenMissing));
 		list.add(new Entry("autotake.cooldownTicks", "int", "20", "取鞘翅后的冷却（tick）", () -> config.autotake.cooldownTicks));
 
