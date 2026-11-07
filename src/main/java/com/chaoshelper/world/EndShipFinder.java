@@ -231,15 +231,18 @@ public final class EndShipFinder {
 		}
 		mod.dataStore().ships().add(ship);
 		mod.dataStore().saveQuietly();
+		boolean marked = false;
 		if (config.markXaero) {
-			XaeroWaypoints.mark("末地船", pos);
+			marked = XaeroWaypoints.mark("末地船", pos);
 		}
 		if (config.notify) {
 			ClientPlayerEntity player = mod.client().player;
 			double distance = player == null ? 0
 					: Math.sqrt(ship.distanceSquaredTo(player.getX(), player.getY(), player.getZ()));
-			mod.notifications().info(String.format(Locale.ROOT, "发现末地船 %d, %d, %d（%.0f 格，已标记）",
-					pos.getX(), pos.getY(), pos.getZ(), distance));
+			String suffix = !config.markXaero ? "，仅本地记录"
+					: marked ? "，已写入路点" : "，Xaero 路点写入失败";
+			mod.notifications().info(String.format(Locale.ROOT, "发现末地船 %d, %d, %d（%.0f 格%s）",
+					pos.getX(), pos.getY(), pos.getZ(), distance, suffix));
 		}
 	}
 
