@@ -1,0 +1,34 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# Loom / run directory
+run/
+remappedSrc/
+.loom/
+
+# Bundled build dependency.
+# Baritone 1.17.0 is redistributed unmodified under LGPL-3.0 and is required to
+# build: processResources copies it into META-INF/jars as a nested Fabric mod.
+# See NOTICE and libs/README.md. Other jars in libs/ stay local.
+libs/*.jar
+!libs/baritone-api-fabric-1.17.0.jar
+
+# WorkBuddy local project data (internal notes, not part of the mod)
+.workbuddy/
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini

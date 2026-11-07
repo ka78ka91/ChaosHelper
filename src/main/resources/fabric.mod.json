@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "chaoshelper",
+  "version": "${version}",
+  "name": "ChaosHelper",
+  "description": "客户端生存辅助：ESP/Chams、HUD 追踪、本地记录点、可选 Baritone 寻路。仅读取客户端可见信息，不绕过服务端限制。",
+  "authors": [
+    "ChaosHelper Contributors"
+  ],
+  "contact": {},
+  "license": "LGPL-3.0",
+  "icon": "assets/chaoshelper/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.chaoshelper.ChaosHelperClient"
+    ]
+  },
+  "mixins": [
+    "chaoshelper.mixins.json"
+  ],
+  "jars": [
+    {
+      "file": "META-INF/jars/baritone-api-fabric-1.17.0.jar"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": ">=0.140.0"
+  },
+  "suggests": {
+    "baritone": ">=1.17.0"
+  }
+}

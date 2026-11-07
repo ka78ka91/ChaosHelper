@@ -1,0 +1,9 @@
+# Normalise text files to LF in the repository; keep Windows scripts CRLF.
+* text=auto eol=lf
+
+*.jar binary
+*.png binary
+*.class binary
+
+gradlew text eol=lf
+gradlew.bat text eol=crlf

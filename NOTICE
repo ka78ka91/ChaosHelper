@@ -1,0 +1,40 @@
+ChaosHelper
+Copyright (C) 2026 ChaosHelper Contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See the LICENSE file for the full text.
+
+--------------------------------------------------------------------------------
+Third-party notices
+--------------------------------------------------------------------------------
+
+Baritone (bundled)
+    Project : https://github.com/cabaletta/baritone
+    License : GNU Lesser General Public License v3.0
+    Author  : Brady Holland (cabaletta) and contributors
+    Version : 1.17.0 (baritone-api-fabric)
+
+    Baritone is embedded as a nested Fabric mod
+    (META-INF/jars/baritone-api-fabric-1.17.0.jar) so the integration works out
+    of the box. It is redistributed unmodified under the LGPL-3.0. The complete
+    corresponding source is available from the project URL above (tag/release
+    1.17.0). ChaosHelper itself is licensed under LGPL-3.0, so the combined
+    distribution remains LGPL-3.0.
+
+    The ChaosHelper integration code talks to Baritone only through its public
+    API using reflection; no Baritone source code is copied into ChaosHelper's
+    own packages, and Baritone's own license and copyright notices ship intact
+    inside the nested jar.
+
+    Interface verification was done against the official
+    baritone-api-fabric-1.17.0.jar (sha1 553bf1f57179e7d765a6131659b62b4c865ed47e).
+
+Fabric Loader / Fabric API / Yarn
+    https://fabricmc.net/ — Apache License 2.0 (Fabric Loader, Fabric API)
+    Yarn mappings — Creative Commons Zero v1.0 Universal
+
+Minecraft
+    Copyright Mojang Studios / Microsoft. This mod is not affiliated with or
+    endorsed by Mojang or Microsoft.
