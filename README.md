@@ -29,36 +29,96 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 
 ## 指令
 
-所有指令都是客户端指令，不会发送到服务端。
+所有指令都是客户端指令，不会发送到服务端。按用途分组，每条单独说明。
+
+### 界面与总闸
 
 | 指令 | 说明 |
 | --- | --- |
-| `/chaoshelper` | 帮助 |
-| `/chaoshelper list` | 列出全部模块与状态 |
-| `/chaoshelper status` | 各开启模块的运行状态、Baritone 状态、缓存数量 |
-| `/chaoshelper <module> on\|off\|toggle` | 开关模块（也有 `on/off/toggle <module>` 通用形式） |
-| `/chaoshelper panic` | 总闸：关闭所有行为模块（AutoEat / AutoPath / ElytraFly 等），保留 HUD |
-| `/chaoshelper reloadmodules` | 热重载 `config/chaoshelper/modules/*.jar`，删除 jar 后恢复内置版 |
+| `/chaoshelper` | 打印帮助 |
+| `/chaoshelper menu` | 打开 ClickGUI（等同按 `K`） |
+| `/chaoshelper list` | 列出全部模块的 id、名称与开关状态 |
+| `/chaoshelper status` | 已开启模块的运行状态、Baritone 状态、缓存数量 |
+| `/chaoshelper panic` | 总闸：关闭所有行为模块，保留 HUD |
+| `/chaoshelper reloadmodules` | 热重载 `config/chaoshelper/modules/*.jar` |
 | `/chaoshelper config` | 打印全部配置键、当前值与默认值 |
+
+### 模块开关
+
+| 指令 | 说明 |
+| --- | --- |
+| `/chaoshelper on <模块>` | 开启模块 |
+| `/chaoshelper off <模块>` | 关闭模块 |
+| `/chaoshelper toggle <模块>` | 切换模块 |
+| `/chaoshelper <模块> on\|off\|toggle` | 同上，模块名在前 |
+
+模块 id：`hud`、`esp`、`chams`、`player-tracker`、`drop-tracker`、`record`、`travel`、`autoeat`。
+例如 `/chaoshelper esp on` 或 `/chaoshelper travel toggle`。
+
+### 旅行
+
+| 指令 | 说明 |
+| --- | --- |
+| `/chaoshelper travel goto <x> <y> <z>` | 按默认模式前往坐标 |
+| `/chaoshelper travel goto <x> <y> <z> walk` | 强制步行（Baritone 寻路，可精确到 Y） |
+| `/chaoshelper travel goto <x> <y> <z> elytra` | 强制鞘翅直飞（只按 X/Z 导航） |
+| `/chaoshelper travel goto <x> <y> <z> glide` | 强制滑翔模式（需已展开鞘翅） |
+| `/chaoshelper travel goto item <uuid>` | 前往缓存中的掉落物 |
+| `/chaoshelper travel goto player <玩家>` | 前往追踪到的玩家 |
+| `/chaoshelper travel goto death` | 前往最后一次死亡点 |
+| `/chaoshelper travel goto log <玩家>` | 前往某玩家最后可见位置 |
+| `/chaoshelper travel goto waypoint <名称>` | 前往小地图路点 |
+| `/chaoshelper travel stop` | 停止当前旅行（等同按 `V`） |
+| `/chaoshelper travel mode <auto\|walk\|elytra\|glide>` | 切换默认旅行模式 |
+| `/chaoshelper autopath ...` | 旧名别名，强制步行 |
+| `/chaoshelper elytrafly ...` | 旧名别名，强制鞘翅 |
+
+> 鞘翅直飞只传 X/Z（Baritone 的 `GoalXZ`），落点由 Baritone 找安全地表；
+> **地下/洞穴目标请用 `walk`**，否则只会落在目标正上方的地面。
+
+### 鞘翅辅助
+
+| 指令 | 说明 |
+| --- | --- |
+| `/chaoshelper elytra` / `elytra status` | 查看开关、阈值与运行状态 |
+| `/chaoshelper elytra climb on\|off\|toggle` | 无动力爬升（默认关闭） |
+| `/chaoshelper elytra swap on\|off\|toggle` | 甲飞：切甲省耐久（默认关闭） |
+
+开启任一开关会自动启用 `travel` 模块。机制、保护与风险见下方「鞘翅辅助」章节。
+
+### 团队、记录与目标
+
+| 指令 | 说明 |
+| --- | --- |
 | `/chaoshelper team add <玩家> [备注]` | 加入本地队友名单 |
-| `/chaoshelper team remove <玩家>` / `list` / `clear` | 队友名单管理 |
-| `/chaoshelper record list` / `clear` | 查看 / 清空本地记录点 |
-| `/chaoshelper target set <玩家>` / `clear` | 设置 / 清除本地目标标记 |
-| `/chaoshelper menu` | 打开 ClickGUI（也可按 `K`） |
-| `/chaoshelper travel goto <x> <y> <z> [auto\|walk\|elytra\|glide]` | 前往坐标，可指定模式 |
-| `/chaoshelper travel goto item <uuid>` | 走到缓存中的掉落物 |
-| `/chaoshelper travel goto player <玩家>` | 走到追踪到的玩家（可配置只允许队友） |
-| `/chaoshelper travel goto death` / `log <玩家>` | 走到死亡点 / 最后可见位置 |
-| `/chaoshelper travel goto waypoint <名称>` | 导航到小地图里的路点 |
-| `/chaoshelper travel stop` / `travel mode <模式>` | 停止 / 切换默认模式 |
-| `/chaoshelper elytra [status\|climb\|swap on\|off\|toggle]` | 鞘翅辅助开关（默认全部关闭，由玩家自行选择） |
-| `/chaoshelper autopath ...` / `elytrafly ...` | 兼容旧名：分别强制步行 / 鞘翅 |
-| `/chaoshelper xaero status\|list\|mark <名称>` | 小地图状态 / 路点列表 / 标记当前位置 |
+| `/chaoshelper team remove <玩家>` | 移除队友 |
+| `/chaoshelper team list` | 查看队友名单 |
+| `/chaoshelper team clear` | 清空队友名单 |
+| `/chaoshelper record list` | 查看最近的本地记录点 |
+| `/chaoshelper record clear` | 清空本地记录 |
+| `/chaoshelper target set <玩家>` | 设置 HUD/ESP 的目标标记 |
+| `/chaoshelper target clear` | 清除目标标记 |
+
+### 小地图与种子
+
+| 指令 | 说明 |
+| --- | --- |
+| `/chaoshelper xaero status` | Xaero 集成状态（路径、是否可写） |
+| `/chaoshelper xaero list` | 列出当前维度路点 |
+| `/chaoshelper xaero mark <名称>` | 在当前位置写一个路点 |
 | `/chaoshelper waypoint list\|add <名称>` | 同上（简写） |
 | `/chaoshelper seed` | 显示种子：单人精确直读，多人明确说明无法获取 |
-| `/chaoshelper seed export` | 导出生物群系+路点证据，交给 SeedCracker 等外部工具 |
+| `/chaoshelper seed export` | 导出生物群系 + 路点证据，交给 SeedCracker 等外部工具 |
 
-默认按键：`V` = 停止旅行/寻路，`P` = panic（关闭全部自动行为），`H` = HUD 开关；
+### 默认按键
+
+| 键 | 作用 |
+| --- | --- |
+| `V` | 停止旅行 / 寻路 |
+| `P` | panic：关闭全部自动行为 |
+| `H` | HUD 开关 |
+| `K` | 打开 ClickGUI |
+
 各模块默认未绑定，可在「按键设置 → 杂项」里绑定。
 
 ---
