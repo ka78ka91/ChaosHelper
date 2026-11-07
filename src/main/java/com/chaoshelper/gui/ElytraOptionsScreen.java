@@ -135,7 +135,7 @@ public final class ElytraOptionsScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		// Background is drawn by Screen.renderWithTooltip; see ClickGuiScreen.
 		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 14, 0xFF55FFFF);
 		int left = width / 2 - 160;
 		context.drawTextWithShadow(textRenderer,

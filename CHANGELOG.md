@@ -3,6 +3,22 @@
 本项目的版本号写在 `gradle.properties` 的 `mod_version`，每次发布前手动递增，
 并同步 `fabric.mod.json`（构建时由 `${version}` 注入）与 `build/libs/chaoshelper-<version>.jar` 的文件名。
 
+## 1.0.1 — 2026-11-07
+
+### 变更
+
+- 自动化不再被普通移动/攻击输入或打开界面打断。新增 `V` 键停止旅行/寻路；
+  `P` 仍是 panic（关闭全部自动行为）。
+- 旧配置一次性迁移（`configVersion` 2 → 3）：`travel.cancelOnInput` / `cancelOnScreen` 置为 `false`。
+  想恢复旧行为可在 ClickGUI → 旅行 → 设置里打开。
+
+### 修复
+
+- 打开 ClickGUI / 工具 / HUD 编辑器等界面崩溃：
+  `IllegalStateException: Can only blur once per frame`。
+  1.21.11 的 `Screen.renderWithTooltip` 已经渲染背景，自定义 Screen 的 `render` 又调用了一次
+  `renderBackground`，导致同一帧 blur 两次。
+
 ## 1.0.0 — 2026-11-07
 
 首个开源版本。

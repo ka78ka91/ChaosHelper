@@ -20,8 +20,10 @@ import java.util.Locale;
  * Unified travel: walking (Baritone custom goal), direct elytra flight (Baritone
  * elytra process) and local glide steering (no fireworks).
  *
- * <p>Every mode is interruptible: any player movement/attack input, opening a
- * screen, panic, death or a dimension change stops it immediately.
+ * <p>Since 1.0.1 travel keeps running through normal movement/attack input and
+ * through opened screens, so long flights and paths are not cancelled by a
+ * stray key press. It stops on the dedicated stop key (default V), panic,
+ * death, a world change, or the optional legacy cancel flags in the ClickGUI.
  */
 public final class TravelModule extends Module {
 	public enum Mode {

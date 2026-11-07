@@ -19,7 +19,7 @@ public final class ConfigKeys {
 
 	public static List<Entry> entries(ChaosConfig config) {
 		List<Entry> list = new ArrayList<>();
-		list.add(new Entry("configVersion", "int", "2", "配置结构版本，用于将来迁移", () -> config.configVersion));
+		list.add(new Entry("configVersion", "int", "3", "配置结构版本，用于将来迁移", () -> config.configVersion));
 		list.add(new Entry("cacheIntervalTicks", "int", "5", "实体缓存刷新间隔（tick）", () -> config.cacheIntervalTicks));
 		list.add(new Entry("errorDisplaySeconds", "int", "120", "HUD 错误提示保留秒数", () -> config.errorDisplaySeconds));
 		list.add(new Entry("notificationSeconds", "int", "45", "普通提示保留秒数", () -> config.notificationSeconds));
@@ -65,8 +65,8 @@ public final class ConfigKeys {
 
 		list.add(new Entry("travel.mode", "string", "auto", "旅行模式 auto|walk|elytra", () -> config.travel.mode));
 		list.add(new Entry("travel.glide", "boolean", "false", "滑翔模式：只调视角，不用烟花", () -> config.travel.glide));
-		list.add(new Entry("travel.cancelOnInput", "boolean", "true", "玩家输入时取消旅行", () -> config.travel.cancelOnInput));
-		list.add(new Entry("travel.cancelOnScreen", "boolean", "true", "打开界面时取消旅行", () -> config.travel.cancelOnScreen));
+		list.add(new Entry("travel.cancelOnInput", "boolean", "false", "旧行为：玩家移动/攻击输入时取消旅行（默认关闭）", () -> config.travel.cancelOnInput));
+		list.add(new Entry("travel.cancelOnScreen", "boolean", "false", "旧行为：打开界面时取消旅行（默认关闭）", () -> config.travel.cancelOnScreen));
 		list.add(new Entry("travel.maxDistance", "double", "5000", "旅行目标最大距离（格）", () -> config.travel.maxDistance));
 		list.add(new Entry("travel.gotoTeammatesOnly", "boolean", "false", "goto player 只接受本地队友", () -> config.travel.gotoTeammatesOnly));
 		list.add(new Entry("travel.minY", "double", "64", "鞘翅起飞安全高度下限", () -> config.travel.minY));

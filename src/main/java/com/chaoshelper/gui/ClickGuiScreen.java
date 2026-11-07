@@ -103,7 +103,9 @@ public class ClickGuiScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		// 1.21.11: Screen.renderWithTooltip already renders the background, and the
+		// blur controller allows only one blur per frame. Calling renderBackground
+		// here as well throws "Can only blur once per frame".
 		drawFrame(context, mouseX, mouseY);
 		drawSidebar(context, mouseX, mouseY);
 		drawModules(context, mouseX, mouseY);

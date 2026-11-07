@@ -126,7 +126,7 @@ public final class HudEditorScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		// Background is drawn by Screen.renderWithTooltip; see ClickGuiScreen.
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		placed.clear();
 		if (client != null && client.player != null) {

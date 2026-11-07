@@ -268,7 +268,7 @@ public final class HudElementScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		// Background is drawn by Screen.renderWithTooltip; see ClickGuiScreen.
 		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 6, 0xFF55FFFF);
 		context.drawCenteredTextWithShadow(textRenderer,
 				element.heading() + "  §8(" + element.typeLabel() + ")", width / 2, 36, 0xFFAAAAAA);

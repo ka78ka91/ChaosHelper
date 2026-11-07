@@ -14,7 +14,7 @@ import java.util.Set;
  * <p>Every knob is declared here on purpose: modules never own their own file.
  */
 public final class ChaosConfig {
-	public int configVersion = 2;
+	public int configVersion = 3;
 	/** How often the shared entity cache is rebuilt, in client ticks. */
 	public int cacheIntervalTicks = 5;
 	/** How long an error stays on the HUD, in seconds (0 = until cleared). */
@@ -79,6 +79,14 @@ public final class ChaosConfig {
 		xaero = xaero == null ? new XaeroConfig() : xaero;
 		baritone = baritone == null ? new BaritoneConfig() : baritone;
 		dynamic = dynamic == null ? new DynamicConfig() : dynamic;
+		if (configVersion < 3) {
+			configVersion = 3;
+			// 1.0.1: old configs stored cancelOnInput/cancelOnScreen=true. Travel
+			// now keeps running through normal input; the stop key (V) or panic (P)
+			// ends it. Players can still re-enable the old behaviour in the ClickGUI.
+			travel.cancelOnInput = false;
+			travel.cancelOnScreen = false;
+		}
 		hud.normalize();
 		esp.normalize();
 		chams.normalize();
@@ -320,8 +328,14 @@ public final class ChaosConfig {
 		public String mode = "auto";
 		/** Glide-only flight: steer toward the goal without using fireworks. */
 		public boolean glide = false;
-		public boolean cancelOnInput = true;
-		public boolean cancelOnScreen = true;
+		/**
+		 * 1.0.1: travel no longer stops on movement/attack input. The dedicated
+		 * stop key (default V) or panic (P) is the intended way out; this flag is
+		 * kept for players who prefer the old behaviour.
+		 */
+		public boolean cancelOnInput = false;
+		/** Also false by default: opening a screen no longer cancels travel. */
+		public boolean cancelOnScreen = false;
 		public double maxDistance = 5000.0;
 		/** When true, "goto player" only accepts local teammates. */
 		public boolean gotoTeammatesOnly = false;

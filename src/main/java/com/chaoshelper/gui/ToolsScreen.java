@@ -201,7 +201,7 @@ public final class ToolsScreen extends Screen {
 
 	@Override
 	public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-		renderBackground(context, mouseX, mouseY, delta);
+		// Background is drawn by Screen.renderWithTooltip; see ClickGuiScreen.
 		context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 18, 0xFF55FFFF);
 		context.drawTextWithShadow(textRenderer, "模块（点击切换）", width / 2 - 162, 30, 0xFFAAAAAA);
 		context.drawTextWithShadow(textRenderer, "旅行 / 工具", width / 2 + 8, 30, 0xFFAAAAAA);

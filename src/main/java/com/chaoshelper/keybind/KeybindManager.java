@@ -22,6 +22,7 @@ public final class KeybindManager {
 	private KeyBinding panicBinding;
 	private KeyBinding hudBinding;
 	private KeyBinding menuBinding;
+	private KeyBinding stopBinding;
 
 	public KeybindManager(ChaosHelperClient mod) {
 		this.mod = mod;
@@ -33,6 +34,9 @@ public final class KeybindManager {
 		panicBinding = register("key.chaoshelper.panic", GLFW.GLFW_KEY_P);
 		hudBinding = register("key.chaoshelper.hud", GLFW.GLFW_KEY_H);
 		menuBinding = register("key.chaoshelper.menu", GLFW.GLFW_KEY_K);
+		// Dedicated "stop automation" key: travel keeps running through normal
+		// movement/attack input, so this (or panic) is the way to end it.
+		stopBinding = register("key.chaoshelper.stop", GLFW.GLFW_KEY_V);
 		registerModule("esp", GLFW.GLFW_KEY_UNKNOWN);
 		registerModule("chams", GLFW.GLFW_KEY_UNKNOWN);
 		registerModule("player-tracker", GLFW.GLFW_KEY_UNKNOWN);
@@ -77,6 +81,13 @@ public final class KeybindManager {
 		}
 		if (panicBinding.wasPressed()) {
 			mod.moduleManager().panic();
+			return;
+		}
+		if (stopBinding.wasPressed()) {
+			mod.travel().stop(false);
+			// Also drop anything Baritone may be running on its own.
+			mod.baritoneBridge().cancel();
+			mod.notifications().info("已停止旅行 / 寻路");
 			return;
 		}
 		if (hudBinding.wasPressed()) {
@@ -124,6 +135,7 @@ public final class KeybindManager {
 		result.add(panicBinding);
 		result.add(hudBinding);
 		result.add(menuBinding);
+		result.add(stopBinding);
 		result.addAll(moduleBindings.values());
 		return result;
 	}

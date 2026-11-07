@@ -4,10 +4,11 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 
 > **定位声明**：本模组只读取客户端本来就能看到的数据（实体、血量、TAB 列表、聊天、本地记录），
 > 用于信息展示与本地记录。它**不**实现自动采集、自动战斗、刷物品，**不**绕过反作弊，
-> **不**伪造或篡改发往服务端的数据包。所有自动行为都可以被玩家输入立即打断。
+> **不**伪造或篡改发往服务端的数据包。自动行为不会因普通移动/攻击输入而中断，
+> 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.0**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.1**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -57,7 +58,8 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `/chaoshelper seed` | 显示种子：单人精确直读，多人明确说明无法获取 |
 | `/chaoshelper seed export` | 导出生物群系+路点证据，交给 SeedCracker 等外部工具 |
 
-默认按键：`P` = panic，`H` = HUD 开关；各模块默认未绑定，可在「按键设置 → 杂项」里绑定。
+默认按键：`V` = 停止旅行/寻路，`P` = panic（关闭全部自动行为），`H` = HUD 开关；
+各模块默认未绑定，可在「按键设置 → 杂项」里绑定。
 
 ---
 
@@ -71,7 +73,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `player-tracker` | 玩家追踪 | 名字、距离、血量（同步/估算分开标注）、护甲、装备、移动状态 |
 | `drop-tracker` | 掉落物追踪 | 物品名×数量、距离、存在时长 |
 | `record` | 本地记录 | 死亡点、离开点、聊天日志点 |
-| `travel` | 旅行 | 步行 / 鞘翅直飞 / 滑翔三合一，输入、开界面、panic 均可打断 |
+| `travel` | 旅行 | 步行 / 鞘翅直飞 / 滑翔三合一；普通输入不打断，按 `V` 停止、`P` panic |
 | `autoeat` | 自动进食 | 阈值触发，尊重冷却与进食动画，玩家输入即暂停 |
 
 HUD 默认布局：左上玩家、右上坐标/模块/记录点、左下掉落物、右下自身与目标；
@@ -120,7 +122,8 @@ HUD 编辑器：
 
 菜单里点「鞘翅辅助」进入设置；命令行等价：`/chaoshelper elytra [status | climb|swap on|off|toggle]`。
 两个开关默认都是 `false`，阈值可以直接在设置页循环调整（或改 `config.json`）。开启任一开关会自动启用
-`travel` 模块。两者都遵守原有中断规则：玩家输入、打开界面、panic、死亡立即停止，并保证换出去的鞘翅装回。
+`travel` 模块。两者都在按 `V` 停止、`P` panic 或死亡时结束；普通移动/攻击输入不再打断。
+甲飞在打开界面等无法安全换装的场景会先等界面关闭再收回鞘翅，绝不把鞘翅留在快捷栏。
 
 ### 无动力爬升（`travel.glideClimb`）
 
@@ -223,8 +226,8 @@ waypoint:名称:缩写:x:y:z:颜色:disabled:type:set:rotate_on_tp:tp_yaw:visibi
 | `autoEat.restoreSlot` | true | 进食后恢复槽位 |
 | `travel.mode` | auto | auto / walk / elytra |
 | `travel.glide` | false | 滑翔模式：只调视角，不消耗烟花 |
-| `travel.cancelOnInput` | true | 输入取消旅行 |
-| `travel.cancelOnScreen` | true | 开界面取消旅行 |
+| `travel.cancelOnInput` | false | 是否恢复旧行为：玩家移动/攻击输入时取消旅行 |
+| `travel.cancelOnScreen` | false | 是否恢复旧行为：打开界面时取消旅行 |
 | `travel.maxDistance` | 5000 | 目标距离上限 |
 | `travel.minY` | 64 | 鞘翅起飞安全高度下限 |
 | `travel.autoTakeElytra` | true | 到达后自动取下展示框里的鞘翅 |
