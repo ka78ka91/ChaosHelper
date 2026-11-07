@@ -8,7 +8,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 > 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.3**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.4**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -73,6 +73,8 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 | `/chaoshelper ship list` | 列出当前维度已发现的末地船（含已搜/未搜与距离） |
 | `/chaoshelper ship goto` | 同 `travel goto ship` |
 | `/chaoshelper ship clear` | 清空末地船列表 |
+| `/chaoshelper ship dir <north\|east\|south\|west\|度数>` | 设定巡航方位，并按当前位置重新起算 |
+| `/chaoshelper ship sweep on\|off\|toggle` | 单向前进巡航开关 |
 | `/chaoshelper travel stop` | 停止当前旅行（等同按 `V`） |
 | `/chaoshelper travel mode <auto\|walk\|elytra\|glide>` | 切换默认旅行模式 |
 | `/chaoshelper autopath ...` | 旧名别名，强制步行 |
@@ -250,11 +252,35 @@ HUD 编辑器：
 
 自动搜刮流程（`endship.autoLoot`，默认开）：
 
-1. **选船**：取最近的未搜末地船作为目标；`travel` 有其它目标时不动，避免和手动旅行打架。
+1. **选船**：巡航模式下取「走廊内、沿飞行方向最靠前」的未搜末地船；`travel` 有其它目标时不动，避免和手动旅行打架。
 2. **飞过去**：自动启用 `travel`，用 Baritone 鞘翅（`elytra`）飞向该船；没烟花会退化为纯滑翔。
 3. **停飞接近**：水平距离 ≤ `approachRadius`（默认 32 格）时停飞，用 Baritone **步行寻路**走向宝藏室的展示框。
 4. **取鞘翅**：进入 `takeRange`（默认 3 格，等于服务端交互上限）后攻击展示框；未变空会每 20 tick 重试。
-5. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后回到第 1 步。
+5. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后继续沿原方向飞。
+
+### 单向前进巡航（`endship.sweep`，默认开）
+
+不开巡航时是「永远飞最近的未搜船」，会在两艘船之间来回掉头。开了巡航就变成一条直线扫过去：
+
+- 以你当前所在位置为原点，按 `sweepBearing`（默认 90° = 正东 `+X`；0=北 `-Z`、180=南 `+Z`、270=西 `-X`）
+  一直往前飞，每段 `sweepStep`（默认 256 格）重新规划一次。
+- **只有落在走廊里的船才会去搜**：横向偏离航线 ≤ `sweepCorridor`（默认 96 格，即 192 格宽的带），
+  且不在身后超过 `sweepBacktrack`（默认 48 格）。走廊外的船照样标记，但留到以后。
+- 搜完一艘立刻回到原方向继续飞，不会掉头找上一艘。
+- 换成纯滑翔（没有烟花）时，只要沿航线的进度到达计划距离就算一段结束，
+  不会因为「高度没对上」而掉头绕圈。
+- 连续 3 段几乎没有前进（比如站在地上没起飞）会自动暂停并提示先展开鞘翅。
+- 手动用 `/chaoshelper travel goto ...` 指定目标时，巡航会让路，不会抢你的目的地。
+
+改方向或开关巡航：
+
+```
+/chaoshelper ship dir east          # 正东（也可 north/south/west 或 0~360 的度数）
+/chaoshelper ship sweep off         # 关掉巡航，回到「飞最近的未搜船」
+/chaoshelper ship sweep on          # 重新按当前位置起算一条巡航线
+```
+
+ClickGUI → 末地船 里也有「巡航(朝一个方向飞)」「巡航方位」「每段距离」「走廊半宽」「允许回头」。
 
 兜底：船悬空、步行路径不可达、或接近超时（`approachTimeoutTicks`，默认 600 tick）时会提示
 「请手动飞进船内」，进入等待状态；你飞到展示框 3 格内仍会自动攻击。等待超过 `manualTimeoutTicks`

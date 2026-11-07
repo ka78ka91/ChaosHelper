@@ -11,6 +11,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.decoration.ItemFrameEntity;
 import net.minecraft.item.Items;
 import net.minecraft.util.math.BlockPos;
@@ -43,7 +44,7 @@ import java.util.function.Predicate;
  */
 public final class EndShipFinder {
 	private enum Phase {
-		IDLE, FLY, APPROACH, MANUAL, WAIT_LOOT
+		IDLE, SWEEP, FLY, APPROACH, MANUAL, WAIT_LOOT
 	}
 
 	private static final Predicate<BlockState> SIGNAL = state ->
@@ -54,6 +55,12 @@ public final class EndShipFinder {
 	private static final int PATH_GIVE_UP_TICKS = 40;
 	/** Retry delay after a failed flight/hand-off, so we do not loop on it. */
 	private static final int RETRY_COOLDOWN_TICKS = 400;
+	/** A leg that gains less than this is treated as "stuck on the ground". */
+	private static final double LEG_STUCK_BLOCKS = 32.0;
+	/** Give up cruising after this many legs in a row made no progress. */
+	private static final int MAX_STUCK_LEGS = 3;
+	/** A leg counts as reached this many blocks before its exact waypoint. */
+	private static final double LEG_TOLERANCE = 24.0;
 
 	private final List<int[]> offsets = new ArrayList<>();
 	private final Map<Long, Integer> scannedAt = new HashMap<>();
@@ -72,6 +79,21 @@ public final class EndShipFinder {
 	private boolean paused;
 	/** The pause came from chainNext=false, so flipping it back on resumes. */
 	private boolean chainStop;
+
+	// Cruise state: a fixed bearing from an anchor point, one leg at a time.
+	private boolean sweepArmed;
+	private double sweepOriginX;
+	private double sweepOriginZ;
+	/** Bearing the anchor was taken with; a config change re-anchors. */
+	private double sweepBearing;
+	/** Highest distance along the bearing that has already been planned. */
+	private double sweepProgress;
+	private double legStartProgress;
+	private int legX;
+	private int legZ;
+	private int sweepLegs;
+	private int stuckLegs;
+	private boolean warnedLegError;
 
 	/** Called once per client tick by the {@code endship} module. */
 	public void tick(MinecraftClient client) {
@@ -143,15 +165,60 @@ public final class EndShipFinder {
 					// The player (or another module) is already travelling.
 					return;
 				}
-				ShipPoint next = nextUnlooted(mod, null);
-				if (next == null) {
+				ShipPoint next = config.sweep
+						? nextAheadShip(mod, player, config)
+						: nextUnlooted(mod, null);
+				if (next != null) {
+					if (horizontalDistance(player, next) <= config.approachRadius) {
+						target = next;
+						enterApproach(mod);
+					} else {
+						startFlight(mod, player, next);
+					}
 					return;
 				}
-				if (horizontalDistance(player, next) <= config.approachRadius) {
-					target = next;
-					enterApproach(mod);
-				} else {
-					startFlight(mod, player, next);
+				if (config.sweep) {
+					// Nothing in the corridor: keep going the same way.
+					startSweepLeg(mod, player, config);
+				}
+			}
+			case SWEEP -> {
+				if (mod.travel().hasTarget() && !mod.travel().isTarget(legX, legZ)) {
+					// The player (or another module) replaced our leg: yield instead
+					// of hijacking their destination.
+					phase = Phase.IDLE;
+					target = null;
+					return;
+				}
+				// A ship showed up inside the corridor: break off and loot it now.
+				ShipPoint found = nextAheadShip(mod, player, config);
+				if (found != null) {
+					mod.travel().stop(false);
+					if (horizontalDistance(player, found) <= config.approachRadius) {
+						target = found;
+						enterApproach(mod);
+					} else {
+						startFlight(mod, player, found);
+					}
+					return;
+				}
+				// Leg done once we pass the planned distance. This is what keeps a
+				// pure glide from turning around to hit an altitude it already left.
+				boolean legReached = progress(player, config) >= sweepProgress - LEG_TOLERANCE;
+				if (legReached && mod.travel().hasTarget()) {
+					mod.travel().stop(false);
+				}
+				if (!mod.travel().hasTarget()) {
+					// Leg finished (arrived, landed, or Baritone gave up): plan the next.
+					if (!progressGained(player, config)) {
+						if (++stuckLegs >= MAX_STUCK_LEGS) {
+							abort(mod, "连续多段没有前进，请先跳下展开鞘翅再继续");
+							return;
+						}
+					} else {
+						stuckLegs = 0;
+					}
+					startSweepLeg(mod, player, config);
 				}
 			}
 			case FLY -> {
@@ -180,8 +247,137 @@ public final class EndShipFinder {
 		}
 	}
 
-	private void startFlight(ChaosHelperClient mod, ClientPlayerEntity player, ShipPoint ship) {
+	// ----------------------------------------------------------------- cruise
+
+	private double dirX(ChaosConfig.EndShipConfig config) {
+		return Math.sin(Math.toRadians(config.sweepBearing));
+	}
+
+	private double dirZ(ChaosConfig.EndShipConfig config) {
+		return -Math.cos(Math.toRadians(config.sweepBearing));
+	}
+
+	/** Distance travelled along the cruise bearing, measured from the anchor. */
+	private double progress(ClientPlayerEntity player, ChaosConfig.EndShipConfig config) {
+		return (player.getX() - sweepOriginX) * dirX(config)
+				+ (player.getZ() - sweepOriginZ) * dirZ(config);
+	}
+
+	private boolean progressGained(ClientPlayerEntity player, ChaosConfig.EndShipConfig config) {
+		return progress(player, config) - legStartProgress >= LEG_STUCK_BLOCKS;
+	}
+
+	private void armSweep(ClientPlayerEntity player, ChaosConfig.EndShipConfig config) {
+		sweepArmed = true;
+		sweepBearing = config.sweepBearing;
+		sweepOriginX = player.getX();
+		sweepOriginZ = player.getZ();
+		sweepProgress = 0.0;
+		legStartProgress = 0.0;
+		sweepLegs = 0;
+		stuckLegs = 0;
+		warnedLegError = false;
+	}
+
+	private boolean sweepNeedsArming(ChaosConfig.EndShipConfig config) {
+		return !sweepArmed || Math.abs(sweepBearing - config.sweepBearing) > 1e-6;
+	}
+
+	/** Flies the next leg along the cruise bearing. */
+	private void startSweepLeg(ChaosHelperClient mod, ClientPlayerEntity player,
+			ChaosConfig.EndShipConfig config) {
+		if (!player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA)) {
+			// Not geared up yet: stay idle instead of complaining every tick.
+			return;
+		}
+		if (sweepNeedsArming(config)) {
+			armSweep(player, config);
+		}
+		double dx = dirX(config);
+		double dz = dirZ(config);
+		double ahead = Math.max(sweepProgress, progress(player, config)) + Math.max(64, config.sweepStep);
+		sweepProgress = ahead;
+		legStartProgress = progress(player, config);
+		int x = (int) Math.round(sweepOriginX + dx * ahead);
+		int z = (int) Math.round(sweepOriginZ + dz * ahead);
+		int y = (int) Math.round(player.getY());
 		mod.moduleManager().setEnabled("travel", true);
+		String error = mod.travel().start(x, y, z, TravelModule.Mode.ELYTRA, "巡航", true);
+		if (error != null) {
+			if (!warnedLegError) {
+				warnedLegError = true;
+				mod.notifications().error("自动巡航无法起飞：" + error);
+			}
+			paused = true;
+			chainStop = false;
+			retryCooldown = RETRY_COOLDOWN_TICKS;
+			return;
+		}
+		warnedLegError = false;
+		legX = x;
+		legZ = z;
+		phase = Phase.SWEEP;
+		phaseTicks = 0;
+		sweepLegs++;
+	}
+
+	/**
+	 * Closest unlooted ship that still lies inside the cruise corridor. Ships are
+	 * taken in flight order (smallest progress first) so the sweep never zigzags.
+	 */
+	private ShipPoint nextAheadShip(ChaosHelperClient mod, ClientPlayerEntity player,
+			ChaosConfig.EndShipConfig config) {
+		if (mod.client().world == null) {
+			return null;
+		}
+		if (!sweepArmed) {
+			if (phase != Phase.IDLE) {
+				// Mid-run without an anchor; the next leg will establish one.
+				return null;
+			}
+			armSweep(player, config);
+		}
+		String dimension = mod.client().world.getRegistryKey().getValue().toString();
+		double dx = dirX(config);
+		double dz = dirZ(config);
+		double base = progress(player, config);
+		int range = config.chainRange;
+		double rangeSquared = range <= 0 ? Double.MAX_VALUE : (double) range * range;
+		ShipPoint best = null;
+		double bestProgress = Double.MAX_VALUE;
+		for (ShipPoint ship : mod.dataStore().ships()) {
+			if (ship.looted || !ship.dimension.equals(dimension)) {
+				continue;
+			}
+			if (ship.distanceSquaredTo(player.getX(), player.getY(), player.getZ()) > rangeSquared) {
+				continue;
+			}
+			double sx = ship.x + 0.5 - sweepOriginX;
+			double sz = ship.z + 0.5 - sweepOriginZ;
+			double along = sx * dx + sz * dz;
+			if (along < base - config.sweepBacktrack) {
+				// Flown past already; a later pass can pick it up.
+				continue;
+			}
+			if (Math.abs(sx * dz - sz * dx) > config.sweepCorridor) {
+				continue;
+			}
+			if (along < bestProgress) {
+				bestProgress = along;
+				best = ship;
+			}
+		}
+		return best;
+	}
+
+	/** Compass label for a bearing in degrees. */
+	public static String bearingName(double bearing) {
+		String[] names = { "北 (-Z)", "东北", "东 (+X)", "东南", "南 (+Z)", "西南", "西 (-X)", "西北" };
+		int index = (int) Math.round((((bearing % 360.0) + 360.0) % 360.0) / 45.0) % 8;
+		return names[index];
+	}
+
+	private void startFlight(ChaosHelperClient mod, ClientPlayerEntity player, ShipPoint ship) {		mod.moduleManager().setEnabled("travel", true);
 		String error = mod.travel().start(ship.x, ship.y, ship.z, TravelModule.Mode.ELYTRA, "末地船");
 		if (error != null) {
 			mod.notifications().error("自动搜船：飞往末地船失败 - " + error);
@@ -592,14 +788,37 @@ public final class EndShipFinder {
 		resetAutomation();
 	}
 
+	/**
+	 * Called when the module is switched off. Only our own cruise leg is dropped;
+	 * a trip the player started by hand is left alone.
+	 */
+	public void cancelOwnLeg() {
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		if (mod == null) {
+			return;
+		}
+		if (phase == Phase.SWEEP && mod.travel().isTarget(legX, legZ)) {
+			mod.travel().stop(false);
+		}
+		if (phase == Phase.FLY || phase == Phase.APPROACH) {
+			mod.baritoneBridge().cancel();
+		}
+	}
+
 	/** Re-arms the loop after the player starts the flow again. */
-	public void resumeAutomation() {
-		paused = false;
+	public void resumeAutomation() {		paused = false;
 		chainStop = false;
 		retryCooldown = 0;
 		chainDelay = 0;
 		phase = Phase.IDLE;
 		target = null;
+		// Re-anchor the cruise line on the player instead of resuming the old one.
+		sweepArmed = false;
+		sweepProgress = 0;
+		legStartProgress = 0;
+		sweepLegs = 0;
+		stuckLegs = 0;
+		warnedLegError = false;
 	}
 
 	public void resetForWorldChange() {
@@ -619,6 +838,12 @@ public final class EndShipFinder {
 		pathIssued = false;
 		paused = false;
 		chainStop = false;
+		sweepArmed = false;
+		sweepProgress = 0;
+		legStartProgress = 0;
+		sweepLegs = 0;
+		stuckLegs = 0;
+		warnedLegError = false;
 	}
 
 	public String status() {
@@ -627,8 +852,15 @@ public final class EndShipFinder {
 			return "未在世界中";
 		}
 		String dimension = mod.client().world.getRegistryKey().getValue().toString();
+		ChaosConfig.EndShipConfig config = mod.config().endship;
 		String state = switch (phase) {
 			case IDLE -> paused ? "已暂停" : "待机";
+			case SWEEP -> {
+				ClientPlayerEntity player = mod.client().player;
+				long left = player == null ? 0
+						: Math.round(Math.max(0, sweepProgress - progress(player, config)));
+				yield "巡航 " + bearingName(config.sweepBearing) + "（第 " + sweepLegs + " 段，剩 " + left + " 格）";
+			}
 			case FLY -> "飞往 " + (target == null ? "?" : target.x + ", " + target.z);
 			case APPROACH -> "接近展示框";
 			case MANUAL -> "等待手动接近";

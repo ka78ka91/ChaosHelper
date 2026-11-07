@@ -48,6 +48,8 @@ public final class TravelModule extends Module {
 	private boolean glideStarted;
 	private int elytraRetries;
 	private int lastElytraRetry = -1_000;
+	/** Cruise legs replan every few hundred blocks; do not narrate each one. */
+	private boolean quietRoute;
 
 	/** Both assists are opt-in: they only run when the matching config flag is on. */
 	private final GlideClimbAssist climb = new GlideClimbAssist();
@@ -68,6 +70,11 @@ public final class TravelModule extends Module {
 		return hasTarget ? targetX + ", " + targetY + ", " + targetZ : "无";
 	}
 
+	/** True when the current goal is exactly this x/z pair (used by cruise legs). */
+	public boolean isTarget(int x, int z) {
+		return hasTarget && targetX == x && targetZ == z;
+	}
+
 	public Mode activeMode() {
 		return activeMode;
 	}
@@ -76,6 +83,15 @@ public final class TravelModule extends Module {
 	 * @return null on success, or a user-facing error message
 	 */
 	public String start(int x, int y, int z, Mode requested, String label) {
+		return start(x, y, z, requested, label, false);
+	}
+
+	/**
+	 * @param quiet suppress the "started travelling" chatter; used by the cruise
+	 *              legs of the End Ship sweep, which replan every few hundred blocks
+	 * @return null on success, or a user-facing error message
+	 */
+	public String start(int x, int y, int z, Mode requested, String label, boolean quiet) {
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		MinecraftClient client = mod.client();
 		ClientPlayerEntity player = client.player;
@@ -92,7 +108,7 @@ public final class TravelModule extends Module {
 			if (!player.getEquippedStack(EquipmentSlot.CHEST).isOf(Items.ELYTRA)) {
 				return "滑翔模式需要穿着鞘翅";
 			}
-			if (!player.isGliding()) {
+			if (!player.isGliding() && !quiet) {
 				mod.notifications().info("滑翔模式已设定：跳下并按空格展开鞘翅后自动接管");
 			}
 		}
@@ -114,8 +130,10 @@ public final class TravelModule extends Module {
 					return "背包没有烟花，也没有穿鞘翅：无法飞行";
 				}
 				mode = Mode.GLIDE;
-				mod.notifications().info("背包没有烟花：已改用纯滑翔（展开鞘翅后自动接管）");
-			} else if (!player.isGliding()) {
+				if (!quiet) {
+					mod.notifications().info("背包没有烟花：已改用纯滑翔（展开鞘翅后自动接管）");
+				}
+			} else if (!player.isGliding() && !quiet) {
 				mod.notifications().info("鞘翅飞行已设定：跳下并展开鞘翅后会自动接管");
 			}
 		}
@@ -131,6 +149,7 @@ public final class TravelModule extends Module {
 				return error;
 			}
 		}
+		quietRoute = quiet;
 		targetX = x;
 		targetY = y;
 		targetZ = z;
@@ -142,8 +161,10 @@ public final class TravelModule extends Module {
 		glideStarted = false;
 		elytraRetries = 0;
 		lastElytraRetry = -1_000;
-		mod.notifications().info("开始旅行(" + modeLabel(mode) + "): " + targetText()
-				+ (targetLabel.isBlank() ? "" : " " + targetLabel));
+		if (!quiet) {
+			mod.notifications().info("开始旅行(" + modeLabel(mode) + "): " + targetText()
+					+ (targetLabel.isBlank() ? "" : " " + targetLabel));
+		}
 		return null;
 	}
 
@@ -320,7 +341,9 @@ public final class TravelModule extends Module {
 					// Baritone may finish slightly above the goal; keep the marker until arrival check.
 					hasTarget = false;
 					mod.baritoneBridge().cancel();
-					mod.notifications().info("鞘翅飞行已结束");
+					if (!quietRoute) {
+						mod.notifications().info("鞘翅飞行已结束");
+					}
 				} else if (ticksSinceStart - lastElytraRetry >= ELYTRA_RESTART_COOLDOWN) {
 					// 甲飞 drops the glide flag for a couple of ticks and Baritone
 					// treats that as the end of the flight. Re-issue the same goal
@@ -329,7 +352,9 @@ public final class TravelModule extends Module {
 					lastElytraRetry = ticksSinceStart;
 					if (error == null) {
 						elytraRetries++;
-						mod.notifications().info("航线已自动恢复（" + elytraRetries + "/" + ELYTRA_RESTARTS + "）");
+						if (!quietRoute) {
+							mod.notifications().info("航线已自动恢复（" + elytraRetries + "/" + ELYTRA_RESTARTS + "）");
+						}
 					} else {
 						hasTarget = false;
 						mod.baritoneBridge().cancel();
@@ -424,7 +449,9 @@ public final class TravelModule extends Module {
 		ChaosHelperClient mod = ChaosHelperClient.get();
 		ticksSinceArrive++;
 		if (ticksSinceArrive == 1) {
-			mod.notifications().info("已到达 " + (targetLabel.isBlank() ? targetText() : targetLabel));
+			if (!quietRoute) {
+				mod.notifications().info("已到达 " + (targetLabel.isBlank() ? targetText() : targetLabel));
+			}
 			stop(false);
 		}
 	}

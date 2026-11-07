@@ -387,6 +387,20 @@ public final class ChaosConfig {
 		public int chainDelayTicks = 60;
 		/** 0 = any distance; otherwise skip ships farther than this. */
 		public int chainRange = 0;
+		/**
+		 * Cruise mode: fly along one bearing and only divert for ships inside the
+		 * corridor, then resume the same bearing. Off = always hunt the nearest
+		 * unlooted ship, which can double back.
+		 */
+		public boolean sweep = true;
+		/** Cruise bearing in degrees: 0 = north (-Z), 90 = east (+X), 180 = south, 270 = west. */
+		public double sweepBearing = 90.0;
+		/** Blocks flown per leg before the next waypoint is planned. */
+		public int sweepStep = 256;
+		/** Ships farther than this from the cruise line are left for a later pass. */
+		public int sweepCorridor = 96;
+		/** How far behind the current progress a ship may be and still be looted. */
+		public int sweepBacktrack = 48;
 
 		void normalize() {
 			scanRadiusChunks = clamp(scanRadiusChunks, 1, 16);
@@ -400,6 +414,10 @@ public final class ChaosConfig {
 			manualTimeoutTicks = clamp(manualTimeoutTicks, 100, 6000);
 			chainDelayTicks = clamp(chainDelayTicks, 0, 400);
 			chainRange = clamp(chainRange, 0, 30000);
+			sweepBearing = ((sweepBearing % 360.0) + 360.0) % 360.0;
+			sweepStep = clamp(sweepStep, 64, 4096);
+			sweepCorridor = clamp(sweepCorridor, 16, 512);
+			sweepBacktrack = clamp(sweepBacktrack, 0, 256);
 		}
 	}
 

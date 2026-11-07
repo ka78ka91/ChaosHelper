@@ -24,6 +24,7 @@ public final class EndShipModule extends Module {
 
 	@Override
 	protected void onDisable() {
+		finder.cancelOwnLeg();
 		finder.resetForWorldChange();
 	}
 

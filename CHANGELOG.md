@@ -3,6 +3,24 @@
 本项目的版本号写在 `gradle.properties` 的 `mod_version`，每次发布前手动递增，
 并同步 `fabric.mod.json`（构建时由 `${version}` 注入）与 `build/libs/chaoshelper-<version>.jar` 的文件名。
 
+## 1.0.4 — 2026-11-07
+
+### 新增
+
+- **单向前进巡航（`endship.sweep`，默认开）**：不再「永远飞最近的未搜船」，而是沿一个固定方位
+  一直往前飞（`sweepBearing`，默认正东），每 `sweepStep`（256 格）重规划一段。
+  只有横向偏离 ≤ `sweepCorridor`（96 格）且不在身后超过 `sweepBacktrack`（48 格）的船才去搜，
+  搜完立刻回到原方向继续。走廊外的船照样标记，留到以后。
+- 纯滑翔时以「沿航线进度」判断一段结束，不会因为高度对不上而掉头绕圈。
+- 连续 3 段没有前进（例如站在地上没起飞）自动暂停并提示先展开鞘翅。
+- 手动 `travel goto` 指定其它目标时巡航让路，不会抢目的地。
+- 新指令：`/chaoshelper ship dir <north|east|south|west|度数>`、`/chaoshelper ship sweep on|off|toggle`。
+  ClickGUI → 末地船 增加「巡航(朝一个方向飞) / 巡航方位 / 每段距离 / 走廊半宽 / 允许回头」。
+
+### 变更
+
+- `travel.start(...)` 新增静默重载：巡航每段不再刷「开始旅行/已到达/航线已恢复」的提示。
+
 ## 1.0.3 — 2026-11-07
 
 ### 新增

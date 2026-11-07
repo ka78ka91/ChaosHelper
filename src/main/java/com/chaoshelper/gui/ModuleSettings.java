@@ -18,6 +18,9 @@ public final class ModuleSettings {
 			0xFFFFAA55, 0xFFFF5555, 0xFFFF55FF, 0xFF55AAFF,
 			0xFFAAAAAA, 0xFF888888, 0xFFFFD700
 	};
+	private static final String[] BEARINGS = {
+			"北 (-Z)", "东北", "东 (+X)", "东南", "南 (+Z)", "西南", "西 (-X)", "西北"
+	};
 
 	private ModuleSettings() {
 	}
@@ -180,6 +183,15 @@ public final class ModuleSettings {
 		list.add(Setting.integer("转场等待(tick)", 0, 400, 10, () -> ship.chainDelayTicks,
 				value -> ship.chainDelayTicks = value));
 		list.add(Setting.integer("转场距离上限", 0, 30000, 1000, () -> ship.chainRange, value -> ship.chainRange = value));
+		list.add(Setting.bool("巡航(朝一个方向飞)", () -> ship.sweep, value -> ship.sweep = value));
+		list.add(Setting.option("巡航方位", BEARINGS,
+				() -> (int) Math.round(ship.sweepBearing / 45.0) % 8,
+				value -> ship.sweepBearing = value * 45.0));
+		list.add(Setting.integer("每段距离", 64, 1024, 64, () -> ship.sweepStep, value -> ship.sweepStep = value));
+		list.add(Setting.integer("走廊半宽", 16, 512, 16, () -> ship.sweepCorridor,
+				value -> ship.sweepCorridor = value));
+		list.add(Setting.integer("允许回头", 0, 256, 8, () -> ship.sweepBacktrack,
+				value -> ship.sweepBacktrack = value));
 		list.add(Setting.button("已发现", () -> mod.endShipFinder().status(), () -> {
 			// Read-only summary; clearing lives in /chaoshelper ship clear.
 		}));

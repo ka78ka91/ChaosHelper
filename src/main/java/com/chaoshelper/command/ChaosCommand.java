@@ -13,6 +13,7 @@ import com.chaoshelper.module.Module;
 import com.chaoshelper.module.modules.TravelModule;
 import com.chaoshelper.target.TargetResolver;
 import com.chaoshelper.util.TimeUtil;
+import com.chaoshelper.world.EndShipFinder;
 import com.chaoshelper.world.SeedEvidence;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -120,6 +121,18 @@ public final class ChaosCommand {
 				.executes(context -> shipList(context.getSource()))
 				.then(literal("list").executes(context -> shipList(context.getSource())))
 				.then(literal("clear").executes(context -> shipClear(context.getSource())))
+				.then(literal("sweep")
+						.executes(context -> shipSweep(context.getSource(), null))
+						.then(literal("on").executes(context -> shipSweep(context.getSource(), true)))
+						.then(literal("off").executes(context -> shipSweep(context.getSource(), false)))
+						.then(literal("toggle").executes(context -> shipSweep(context.getSource(), null))))
+				.then(literal("dir")
+						.then(argument("bearing", StringArgumentType.word())
+								.suggests((context, builder) -> CommandSource.suggestMatching(
+										List.of("north", "east", "south", "west", "0", "45", "90", "135",
+												"180", "225", "270", "315"), builder))
+								.executes(context -> shipDir(context.getSource(),
+										StringArgumentType.getString(context, "bearing")))))
 				.then(literal("goto").executes(context -> gotoNearestShip(context, null))));
 
 		// Backwards-compatible aliases for the pre-merge command names.
@@ -267,6 +280,8 @@ public final class ChaosCommand {
 		feedback(source, "/chaoshelper travel goto elytra  走向最近的鞘翅展示框");
 		feedback(source, "/chaoshelper travel goto ship    飞向最近的未搜末地船");
 		feedback(source, "/chaoshelper ship list|goto|clear  末地船列表 / 前往 / 清空");
+		feedback(source, "/chaoshelper ship sweep on|off|toggle  单向前进巡航（搜完一艘继续飞）");
+		feedback(source, "/chaoshelper ship dir <north|east|south|west|度数>  设定巡航方位");
 		feedback(source, "/chaoshelper travel stop | travel mode <mode>");
 		feedback(source, "/chaoshelper elytra [status | climb|swap on|off|toggle]  鞘翅辅助开关");
 		feedback(source, "/chaoshelper team add|remove|list|clear");
@@ -466,7 +481,52 @@ public final class ChaosCommand {
 		return 1;
 	}
 
-	private static TravelModule.Mode parseMode(String explicit) {		if (explicit == null) {
+	private static int shipSweep(FabricClientCommandSource source, Boolean value) {
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		ChaosConfig.EndShipConfig ship = mod.config().endship;
+		boolean next = value == null ? !ship.sweep : value;
+		ship.sweep = next;
+		if (next) {
+			// Re-anchor at the player; the old line may be far behind.
+			mod.endShipFinder().resumeAutomation();
+			mod.moduleManager().setEnabled("endship", true);
+		}
+		mod.saveConfigQuietly();
+		feedback(source, "末地船巡航 -> " + onOff(next)
+				+ (next ? "，朝 " + EndShipFinder.bearingName(ship.sweepBearing) + " 一直飞" : "，改为搜最近的未搜船"));
+		return 1;
+	}
+
+	private static int shipDir(FabricClientCommandSource source, String raw) {
+		ChaosHelperClient mod = ChaosHelperClient.get();
+		double bearing;
+		switch (raw.toLowerCase(Locale.ROOT)) {
+			case "north", "n", "北" -> bearing = 0.0;
+			case "east", "e", "东" -> bearing = 90.0;
+			case "south", "s", "南" -> bearing = 180.0;
+			case "west", "w", "西" -> bearing = 270.0;
+			default -> {
+				try {
+					bearing = Double.parseDouble(raw);
+				} catch (NumberFormatException exception) {
+					error(source, "方位用 north/east/south/west 或 0~360 的度数（0=北，90=东）");
+					return 0;
+				}
+			}
+		}
+		ChaosConfig.EndShipConfig ship = mod.config().endship;
+		ship.sweepBearing = ((bearing % 360.0) + 360.0) % 360.0;
+		ship.sweep = true;
+		mod.endShipFinder().resumeAutomation();
+		mod.moduleManager().setEnabled("endship", true);
+		mod.saveConfigQuietly();
+		feedback(source, String.format(Locale.ROOT, "巡航方位 -> %s（%.0f°，按当前位置重新起算）",
+				EndShipFinder.bearingName(ship.sweepBearing), ship.sweepBearing));
+		return 1;
+	}
+
+	private static TravelModule.Mode parseMode(String explicit) {
+		if (explicit == null) {
 			return TravelModule.Mode.AUTO;
 		}
 		return switch (explicit.toLowerCase(Locale.ROOT)) {
