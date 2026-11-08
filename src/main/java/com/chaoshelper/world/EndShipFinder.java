@@ -44,7 +44,7 @@ import java.util.function.Predicate;
  */
 public final class EndShipFinder {
 	private enum Phase {
-		IDLE, SWEEP, FLY, APPROACH, MANUAL, WAIT_LOOT
+		IDLE, SWEEP, FLY, APPROACH, MANUAL, WAIT_LOOT, EXIT
 	}
 
 	private static final Predicate<BlockState> SIGNAL = state ->
@@ -154,8 +154,8 @@ public final class EndShipFinder {
 		if (player == null || client.world == null) {
 			return;
 		}
-		if (target != null && target.looted && phase != Phase.IDLE) {
-			finishShip(mod, config);
+		if (target != null && target.looted && phase != Phase.IDLE && phase != Phase.EXIT) {
+			beginExit(mod, player, config);
 			return;
 		}
 		switch (phase) {
@@ -261,6 +261,7 @@ public final class EndShipFinder {
 			case APPROACH -> approachTick(mod, client, player, config);
 			case MANUAL -> manualTick(mod, client, player, config);
 			case WAIT_LOOT -> waitLootTick(mod, client, player, config);
+			case EXIT -> exitTick(mod, player, config);
 		}
 	}
 
@@ -481,7 +482,7 @@ public final class EndShipFinder {
 		}
 		phaseTicks++;
 		if (target.looted) {
-			finishShip(mod, config);
+			beginExit(mod, player, config);
 			return;
 		}
 		if (phaseTicks % 20 == 0) {
@@ -490,6 +491,62 @@ public final class EndShipFinder {
 		}
 		if (phaseTicks > 120) {
 			toManual(mod, "展示框没有变空");
+		}
+	}
+
+	/**
+	 * The elytra is taken. An End Ship's treasure room is fully enclosed, so there
+	 * is nowhere to deploy a wing: walk back out to the bow (dragon head) first,
+	 * otherwise the next flight just stands inside a wall and times out.
+	 */
+	private void beginExit(ChaosHelperClient mod, ClientPlayerEntity player, ChaosConfig.EndShipConfig config) {
+		if (!config.chainNext || target == null || !target.hasDeck()) {
+			finishShip(mod, config);
+			return;
+		}
+		phase = Phase.EXIT;
+		phaseTicks = 0;
+		pathIssued = false;
+	}
+
+	private void exitTick(ChaosHelperClient mod, ClientPlayerEntity player, ChaosConfig.EndShipConfig config) {
+		if (target == null || !target.hasDeck()) {
+			finishShip(mod, config);
+			return;
+		}
+		phaseTicks++;
+		double dx = target.deckX + 0.5 - player.getX();
+		double dz = target.deckZ + 0.5 - player.getZ();
+		double dy = target.deckY + 0.5 - player.getY();
+		double horizontal = Math.sqrt(dx * dx + dz * dz);
+		if (horizontal <= 4.0 && Math.abs(dy) <= 3.0) {
+			finishShip(mod, config);
+			return;
+		}
+		if (!pathIssued) {
+			pathIssued = true;
+			phaseTicks = 0;
+			String error = mod.baritoneBridge().startPath(target.deckX, target.deckY, target.deckZ);
+			if (error != null) {
+				mod.notifications().info("无法寻路回甲板（" + error + "），请自己走出舱门");
+				finishShip(mod, config);
+			}
+			return;
+		}
+		if (!mod.baritoneBridge().isPathing() && phaseTicks > PATH_GIVE_UP_TICKS) {
+			// Standing on the hull but a few blocks from the bow is fine.
+			if (horizontal > 12.0) {
+				mod.notifications().info("没能走到甲板，请自己走出舱门后继续");
+			}
+			finishShip(mod, config);
+			return;
+		}
+		if (phaseTicks > config.approachTimeoutTicks) {
+			mod.baritoneBridge().cancel();
+			if (horizontal > 12.0) {
+				mod.notifications().info("回甲板超时，请自己走出去；已直接开始下一段");
+			}
+			finishShip(mod, config);
 		}
 	}
 
@@ -574,7 +631,7 @@ public final class EndShipFinder {
 			BlockPos pos = frame.getBlockPos();
 			if (frame.getHeldItemStack().isOf(Items.ELYTRA)) {
 				// The frame is the best navigation anchor: it is inside the ship.
-				register(mod, pos, pos, dimension, config);
+				register(mod, pos, pos, dimension, config, false);
 				continue;
 			}
 			ShipPoint known = findNear(dimension, pos, FRAME_MATCH_RADIUS);
@@ -638,7 +695,7 @@ public final class EndShipFinder {
 							continue;
 						}
 						register(mod, new BlockPos(startX + x, bottom + index * 16 + y, startZ + z), null,
-								dimension, config);
+								dimension, config, state.isOf(Blocks.DRAGON_HEAD));
 					}
 				}
 			}
@@ -665,10 +722,15 @@ public final class EndShipFinder {
 	// ------------------------------------------------------------- registration
 
 	private void register(ChaosHelperClient mod, BlockPos pos, BlockPos frame, String dimension,
-			ChaosConfig.EndShipConfig config) {
+			ChaosConfig.EndShipConfig config, boolean bow) {
 		ShipPoint existing = findNear(dimension, pos, config.dedupeRadius);
 		if (existing != null) {
 			boolean changed = false;
+			if (bow && !existing.hasDeck()) {
+				// Dragon head: the only reliably "outside the cabin" anchor.
+				existing.setDeck(pos.getX(), pos.getY(), pos.getZ());
+				changed = true;
+			}
 			if (frame != null && (!existing.hasFrame() || existing.frameX != frame.getX()
 					|| existing.frameY != frame.getY() || existing.frameZ != frame.getZ())) {
 				// Prefer the treasure room over the bow once it is visible.
@@ -684,6 +746,9 @@ public final class EndShipFinder {
 			return;
 		}
 		ShipPoint ship = new ShipPoint(dimension, pos.getX(), pos.getY(), pos.getZ());
+		if (bow) {
+			ship.setDeck(pos.getX(), pos.getY(), pos.getZ());
+		}
 		if (frame != null) {
 			ship.setFrame(frame.getX(), frame.getY(), frame.getZ());
 		}
@@ -889,6 +954,7 @@ public final class EndShipFinder {
 			case APPROACH -> "接近展示框";
 			case MANUAL -> "等待手动接近";
 			case WAIT_LOOT -> "取鞘翅中";
+			case EXIT -> "走回甲板";
 		};
 		return state + " · 已发现 " + shipsIn(dimension).size() + "（未搜 " + unlootedCount(dimension) + "）";
 	}

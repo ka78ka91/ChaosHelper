@@ -8,7 +8,7 @@ Minecraft **1.21.11 / Fabric** 客户端生存辅助模组。
 > 按 `V`（停止旅行/寻路）或 `P`（panic，关闭全部自动行为）随时结束。
 
 - 版本锁定：MC 1.21.11 / Fabric Loader 0.18.2 / Fabric API 0.140.0+1.21.11 / Yarn 1.21.11+build.3 / JDK 21
-- 当前版本：**1.0.5**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
+- 当前版本：**1.0.6**（变更记录见 [CHANGELOG.md](CHANGELOG.md)）
 - 构建：`.\gradlew.bat build`
 - 许可证：LGPL-3.0（见 `LICENSE`、`NOTICE`）
 
@@ -257,7 +257,9 @@ HUD 编辑器：
 2. **飞过去**：自动启用 `travel`，用 Baritone 鞘翅（`elytra`）飞向该船；没烟花会退化为纯滑翔。
 3. **停飞接近**：水平距离 ≤ `approachRadius`（默认 32 格）时停飞，用 Baritone **步行寻路**走向宝藏室的展示框。
 4. **取鞘翅**：进入 `takeRange`（默认 3 格，等于服务端交互上限）后攻击展示框；未变空会每 20 tick 重试。
-5. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后继续沿原方向飞。
+5. **走回甲板**：宝藏室是封闭的，里面没法展开鞘翅。取到鞘翅后会用步行寻路走回船头
+   （龙首所在的位置，`ShipPoint.deck`），走到就继续；走不到会提示你出门，然后照样继续。
+6. **衔接**：展示框空了就算已搜，等 `chainDelayTicks`（默认 60 tick，留给拾取）后继续沿原方向飞。
 
 ### 直接落到船上（`endship.flyExact`，默认开）
 

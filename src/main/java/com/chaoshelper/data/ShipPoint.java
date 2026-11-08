@@ -20,6 +20,13 @@ public final class ShipPoint {
 	public int frameX = Integer.MIN_VALUE;
 	public int frameY = Integer.MIN_VALUE;
 	public int frameZ = Integer.MIN_VALUE;
+	/**
+	 * The dragon head on the bow: a spot outside the cabin. Used to walk back to
+	 * the deck after looting, because an enclosed treasure room has no take-off.
+	 */
+	public int deckX = Integer.MIN_VALUE;
+	public int deckY = Integer.MIN_VALUE;
+	public int deckZ = Integer.MIN_VALUE;
 
 	public ShipPoint() {
 	}
@@ -40,6 +47,16 @@ public final class ShipPoint {
 		frameX = x;
 		frameY = y;
 		frameZ = z;
+	}
+
+	public boolean hasDeck() {
+		return deckX != Integer.MIN_VALUE;
+	}
+
+	public void setDeck(int x, int y, int z) {
+		deckX = x;
+		deckY = y;
+		deckZ = z;
 	}
 
 	public double distanceSquaredTo(double px, double py, double pz) {
